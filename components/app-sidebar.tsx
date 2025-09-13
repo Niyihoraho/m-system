@@ -11,12 +11,14 @@ import {
   Table,
   Plug,
   GalleryVerticalEnd,
+  Target,
   type LucideIcon,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
 import { TeamSwitcher } from "@/components/team-switcher"
+import { NoSSR } from "@/components/no-ssr"
 import {
   Sidebar,
   SidebarContent,
@@ -34,6 +36,7 @@ interface NavItem {
     name: string;
     path: string;
     pro: boolean;
+    icon?: LucideIcon;
   }[];
 }
 
@@ -101,15 +104,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     icon: Calendar,
     name: 'Activities',
     subItems: (() => {
-      const baseItems = [
+      const baseItems: { name: string; path: string; pro: boolean; icon?: LucideIcon }[] = [
         { name: 'Attendance Tracking', path: '/links/activities/attendance', pro: false },
       { name: 'Events', path: '/links/activities/events', pro: false },
       ];
-      
-      // Only add Training Programs for specific roles
-      if (userScopedRole === 'superadmin' || userScopedRole === 'regional' || userScopedRole === 'university' || (isLoadingRole && userRole === 'superadmin')) {
-        baseItems.push({ name: 'Training Programs', path: '/links/activities/training', pro: false });
-      }
       
       return baseItems;
     })(),
@@ -119,10 +117,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     icon: PieChart,
     name: 'Financial Management',
     subItems: (() => {
-      const baseItems = [
+      const baseItems: { name: string; path: string; pro: boolean; icon?: LucideIcon }[] = [
         { name: 'Contributions', path: '/links/financial/contributions', pro: false },
  
-        { name: 'Designations', path: '/links/financial/designations', pro: false },
+        { name: 'Designations', path: '/links/activities/designation', pro: false, icon: Target },
       ];
       return baseItems;
     })(),
@@ -174,19 +172,24 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     items: item.subItems?.map(subItem => ({
       title: subItem.name,
       url: subItem.path,
+      icon: subItem.icon,
     })) || [],
   }));
 
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <TeamSwitcher teams={data.teams} />
+        <NoSSR fallback={<div className="h-12 w-full animate-pulse bg-muted rounded" />}>
+          <TeamSwitcher teams={data.teams} />
+        </NoSSR>
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={navMainItems} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NoSSR fallback={<div className="h-12 w-full animate-pulse bg-muted rounded" />}>
+          <NavUser user={data.user} />
+        </NoSSR>
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

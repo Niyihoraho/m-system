@@ -1,6 +1,28 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Suppress hydration warnings for Radix UI components */
+[data-radix-collection-item] {
+  /* Ensure consistent rendering */
+  contain: layout style;
+}
+
+/* Ensure consistent rendering for dropdown menus */
+[data-radix-dropdown-menu-trigger] {
+  /* Prevent ID mismatches */
+  contain: layout style;
+}
+
+/* Prevent hydration mismatches for Radix UI components */
+[data-radix-popper-content-wrapper] {
+  contain: layout style;
+}
+
+/* Ensure consistent button rendering */
+[data-sidebar="menu-button"] {
+  contain: layout style;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

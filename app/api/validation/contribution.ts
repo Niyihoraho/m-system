@@ -1,38 +1,41 @@
-import { z } from "zod";
+import { z } from 'zod';
 
-export const createContributionSchema = z.object({
-    contributorId: z.number().int().positive("Contributor ID is required"),
-    amount: z.number().positive("Amount must be positive"),
-    method: z.enum(["mobile_money", "bank_transfer", "card", "worldremit"], {
-        errorMap: () => ({ message: "Invalid payment method" })
-    }),
-    designationId: z.union([
-        z.string().transform((val) => {
-            if (!val || val === "" || val === null) return null;
-            const num = Number(val);
-            return isNaN(num) ? null : num;
-        }),
-        z.number().int().positive(),
-        z.null(),
-    ]).optional(),
-    status: z.enum(["pending", "completed", "failed", "refunded", "processing", "cancelled"]).default("pending"),
-    transactionId: z.string().optional(),
-    paymentTransactionId: z.union([
-        z.string().transform((val) => {
-            if (!val || val === "" || val === null) return null;
-            const num = Number(val);
-            return isNaN(num) ? null : num;
-        }),
-        z.number().int().positive(),
-        z.null(),
-    ]).optional(),
-    memberId: z.union([
-        z.string().transform((val) => {
-            if (!val || val === "" || val === null) return null;
-            const num = Number(val);
-            return isNaN(num) ? null : num;
-        }),
-        z.number().int().positive(),
-        z.null(),
-    ]).optional(),
+export const contributorSchema = z.object({
+  id: z.number().int().positive().optional(),
+  name: z.string().min(1, 'Name is required').max(255, 'Name must be less than 255 characters'),
+  email: z.string().email('Invalid email format').optional(),
+  phone: z.string().optional(),
+  memberId: z.number().int().positive().optional(),
 });
+
+export const contributionSchema = z.object({
+  id: z.number().int().positive().optional(),
+  contributor: contributorSchema,
+  amount: z.number().min(0.01, 'Amount must be greater than 0'),
+  method: z.enum(['mobile_money', 'bank_transfer', 'card', 'worldremit']),
+  designationId: z.number().int().positive().optional(),
+  status: z.enum(['pending', 'completed', 'failed', 'refunded', 'processing', 'cancelled']).optional(),
+  transactionId: z.string().optional(),
+  paymentTransactionId: z.number().int().positive().optional(),
+  memberId: z.number().int().positive().optional(),
+  // Additional fields for multi-step form
+  userType: z.enum(['internal', 'external']),
+  paymentMethod: z.string().optional(),
+  paymentProvider: z.number().int().positive().optional(),
+  currency: z.string().default('RWF'),
+});
+
+export const receiptSchema = z.object({
+  id: z.number().int().positive().optional(),
+  contributionId: z.number().int().positive(),
+  receiptNumber: z.string(),
+  pdfPath: z.string().optional(),
+  emailSent: z.boolean().default(false),
+  emailSentAt: z.date().optional(),
+  smsSent: z.boolean().default(false),
+  smsSentAt: z.date().optional(),
+});
+
+export type ContributorInput = z.infer<typeof contributorSchema>;
+export type ContributionInput = z.infer<typeof contributionSchema>;
+export type ReceiptInput = z.infer<typeof receiptSchema>;
