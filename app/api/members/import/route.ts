@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
                     secondname: handleEmptyValue(data.secondname),
                     gender: handleEmptyValue(data.gender?.toLowerCase()),
                     birthdate: handleDateValue(data.birthdate),
+                    placeOfBirthProvince: handleEmptyValue(data.placeOfBirthProvince),
                     placeOfBirthDistrict: handleEmptyValue(data.placeOfBirthDistrict),
                     placeOfBirthSector: handleEmptyValue(data.placeOfBirthSector),
                     placeOfBirthCell: handleEmptyValue(data.placeOfBirthCell),

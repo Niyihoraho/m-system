@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
                 secondname: handleEmptyValue(data.secondname),
                 gender: handleEmptyValue(data.gender?.toLowerCase()),
                 birthdate: handleDateValue(data.birthdate),
+                placeOfBirthProvince: handleEmptyValue(data.placeOfBirthProvince),
                 placeOfBirthDistrict: handleEmptyValue(data.placeOfBirthDistrict),
                 placeOfBirthSector: handleEmptyValue(data.placeOfBirthSector),
                 placeOfBirthCell: handleEmptyValue(data.placeOfBirthCell),
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest) {
                 professionalism: handleEmptyValue(data.professionalism),
                 maritalStatus: handleEmptyValue(data.maritalStatus),
                 updatedAt: new Date(),
-            },
+            } as any,
         });
 
         return NextResponse.json(newMember, { status: 201 });
@@ -225,6 +226,7 @@ export async function PUT(request: NextRequest) {
                 secondname: handleEmptyValue(data.secondname),
                 gender: handleEmptyValue(data.gender?.toLowerCase()),
                 birthdate: handleDateValue(data.birthdate),
+                placeOfBirthProvince: handleEmptyValue(data.placeOfBirthProvince),
                 placeOfBirthDistrict: handleEmptyValue(data.placeOfBirthDistrict),
                 placeOfBirthSector: handleEmptyValue(data.placeOfBirthSector),
                 placeOfBirthCell: handleEmptyValue(data.placeOfBirthCell),
@@ -243,7 +245,7 @@ export async function PUT(request: NextRequest) {
                 professionalism: handleEmptyValue(data.professionalism),
                 maritalStatus: handleEmptyValue(data.maritalStatus),
                 updatedAt: new Date(),
-            },
+            } as any,
             include: {
                 region: true,
                 university: true,

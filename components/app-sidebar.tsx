@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { useMemo } from "react"
+import { useSession } from "next-auth/react"
 import {
   Grid3x3,
   UserCircle,
@@ -40,13 +41,8 @@ interface NavItem {
   }[];
 }
 
-// Sample data for teams and user
+// Sample data for teams
 const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
   teams: [
     {
       name: "GBUR Management",
@@ -57,10 +53,12 @@ const data = {
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  // Mock user role data - replace with actual user context
-  const userScopedRole = 'superadmin'; // Replace with actual user role
-  const userRole = 'superadmin'; // Replace with actual user role
-  const isLoadingRole = false; // Replace with actual loading state
+  const { data: session, status } = useSession();
+  
+  // Get user role from session with fallback
+  const userScopedRole = session?.user?.roles?.[0]?.scope || 'user';
+  const userRole = userScopedRole;
+  const isLoadingRole = status === 'loading';
 
   const navItems = useMemo((): NavItem[] => {
     const baseItems: NavItem[] = [
@@ -188,7 +186,21 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarContent>
       <SidebarFooter>
         <NoSSR fallback={<div className="h-12 w-full animate-pulse bg-muted rounded" />}>
-          <NavUser user={data.user} />
+          {session?.user ? (
+            <NavUser 
+              user={{
+                name: session.user.name || 'User',
+                email: session.user.email || '',
+                avatar: session.user.image || '',
+                username: session.user.username || '',
+                roles: session.user.roles || []
+              }} 
+            />
+          ) : (
+            <div className="p-2 text-center text-sm text-muted-foreground">
+              Not logged in
+            </div>
+          )}
         </NoSSR>
       </SidebarFooter>
       <SidebarRail />

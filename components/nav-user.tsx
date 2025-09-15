@@ -7,7 +7,10 @@ import {
   CreditCard,
   LogOut,
   Sparkles,
+  User,
+  Shield,
 } from "lucide-react"
+import { signOut } from "next-auth/react"
 
 import {
   Avatar,
@@ -37,9 +40,46 @@ export function NavUser({
     name: string
     email: string
     avatar: string
+    username?: string
+    roles?: Array<{
+      scope: string
+      regionId?: number | null
+      universityId?: number | null
+      smallGroupId?: number | null
+      alumniGroupId?: number | null
+      region?: { name: string } | null
+      university?: { name: string } | null
+      smallgroup?: { name: string } | null
+      alumnismallgroup?: { name: string } | null
+    }>
   }
 }) {
   const { isMobile } = useSidebar()
+
+  const handleLogout = () => {
+    signOut({ callbackUrl: "/login" });
+  };
+
+  // Get user initials for avatar fallback
+  const getInitials = (name: string) => {
+    if (!name) return 'U';
+    return name
+      .split(' ')
+      .map(word => word[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  // Get primary role
+  const primaryRole = user.roles?.[0];
+  const roleScope = primaryRole?.scope || 'user';
+  const roleScopeLabels = {
+    superadmin: 'Super Admin',
+    admin: 'Admin',
+    moderator: 'Moderator',
+    user: 'User',
+  };
 
   return (
     <SidebarMenu>
@@ -52,11 +92,13 @@ export function NavUser({
             >
               <Avatar className="h-8 w-8 rounded-lg">
                 <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                <AvatarFallback className="rounded-lg">{getInitials(user.name)}</AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{user.name}</span>
-                <span className="truncate text-xs">{user.email}</span>
+                <span className="truncate text-xs text-muted-foreground">
+                  {user.username ? `@${user.username}` : user.email}
+                </span>
               </div>
               <ChevronsUpDown className="ml-auto size-4" />
             </SidebarMenuButton>
@@ -71,30 +113,30 @@ export function NavUser({
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
                   <AvatarImage src={user.avatar} alt={user.name} />
-                  <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                  <AvatarFallback className="rounded-lg">{getInitials(user.name)}</AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{user.name}</span>
-                  <span className="truncate text-xs">{user.email}</span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {user.username ? `@${user.username}` : user.email}
+                  </span>
+                  {primaryRole && (
+                    <span className="truncate text-xs text-primary font-medium">
+                      {roleScopeLabels[roleScope as keyof typeof roleScopeLabels]}
+                    </span>
+                  )}
                 </div>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem>
-                <Sparkles />
-                Upgrade to Pro
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <BadgeCheck />
-                Account
+                <User />
+                Profile
               </DropdownMenuItem>
               <DropdownMenuItem>
-                <CreditCard />
-                Billing
+                <Shield />
+                Roles & Permissions
               </DropdownMenuItem>
               <DropdownMenuItem>
                 <Bell />
@@ -102,7 +144,7 @@ export function NavUser({
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
               <LogOut />
               Log out
             </DropdownMenuItem>

@@ -29,6 +29,7 @@ interface Member {
   secondname: string | null;
   gender: string | null;
   birthdate: string | null;
+  placeOfBirthProvince: string | null;
   placeOfBirthDistrict: string | null;
   placeOfBirthSector: string | null;
   placeOfBirthCell: string | null;

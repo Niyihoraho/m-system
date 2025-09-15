@@ -1,0 +1,107 @@
+import { NextAuthOptions } from "next-auth"
+import CredentialsProvider from "next-auth/providers/credentials"
+import { PrismaAdapter } from "@auth/prisma-adapter"
+import { prisma } from "@/lib/prisma"
+import bcrypt from "bcryptjs"
+
+export const authOptions: NextAuthOptions = {
+  adapter: PrismaAdapter(prisma),
+  providers: [
+    CredentialsProvider({
+      name: "credentials",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" }
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          return null
+        }
+
+        try {
+          // Find user by email
+          const user = await prisma.user.findUnique({
+            where: { email: credentials.email },
+            include: {
+              userrole: {
+                include: {
+                  region: true,
+                  university: true,
+                  smallgroup: true,
+                  alumnismallgroup: true,
+                }
+              }
+            }
+          })
+
+          if (!user) {
+            return null
+          }
+
+          // Check if user has a password (some users might be OAuth only)
+          if (!user.password) {
+            return null
+          }
+
+          // Verify password
+          const isValidPassword = await bcrypt.compare(credentials.password, user.password)
+
+          if (!isValidPassword) {
+            return null
+          }
+
+          // Check if user is active
+          if (user.status === 'inactive' || user.status === 'suspended') {
+            return null
+          }
+
+          return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            username: user.username,
+            image: user.image,
+            roles: user.userrole?.map(role => ({
+              scope: role.scope,
+              regionId: role.regionId,
+              universityId: role.universityId,
+              smallGroupId: role.smallGroupId,
+              alumniGroupId: role.alumniGroupId,
+              region: role.region,
+              university: role.university,
+              smallgroup: role.smallgroup,
+              alumnismallgroup: role.alumnismallgroup,
+            })) || []
+          }
+        } catch (error) {
+          console.error("Auth error:", error)
+          return null
+        }
+      }
+    })
+  ],
+  session: {
+    strategy: "jwt",
+  },
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.roles = user.roles
+        token.username = user.username
+      }
+      return token
+    },
+    async session({ session, token }) {
+      if (token) {
+        session.user.id = token.sub!
+        session.user.username = token.username as string
+        session.user.roles = token.roles as any[]
+      }
+      return session
+    }
+  },
+  pages: {
+    signIn: "/",
+  },
+  secret: process.env.NEXTAUTH_SECRET || "fallback-secret-for-development",
+}

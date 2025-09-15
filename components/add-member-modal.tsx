@@ -32,6 +32,7 @@ export function AddMemberModal({ children, onMemberAdded }: AddMemberModalProps)
     secondname: "",
     gender: "",
     birthdate: "",
+    placeOfBirthProvince: "",
     placeOfBirthDistrict: "",
     placeOfBirthSector: "",
     placeOfBirthCell: "",
@@ -51,6 +52,62 @@ export function AddMemberModal({ children, onMemberAdded }: AddMemberModalProps)
     maritalStatus: "",
   })
 
+  // Location data states
+  const [provinces, setProvinces] = React.useState<Array<{id: string, name: string}>>([])
+  const [districts, setDistricts] = React.useState<Array<{id: string, name: string}>>([])
+  const [sectors, setSectors] = React.useState<Array<{id: string, name: string}>>([])
+  const [cells, setCells] = React.useState<Array<{id: string, name: string}>>([])
+  const [villages, setVillages] = React.useState<Array<{id: string, name: string}>>([])
+  const [loadingLocations, setLoadingLocations] = React.useState<{[key: string]: boolean}>({})
+
+  // Fetch location data
+  const fetchLocations = async (type: string, parentId?: string) => {
+    console.log(`Fetching ${type}${parentId ? ` for parent ${parentId}` : ''}`)
+    setLoadingLocations(prev => ({ ...prev, [type]: true }))
+    try {
+      const url = parentId 
+        ? `/api/locations?type=${type}&parentId=${parentId}`
+        : `/api/locations?type=${type}`
+      
+      console.log(`Fetching from URL: ${url}`)
+      const response = await fetch(url)
+      const data = await response.json()
+      
+      console.log(`Response for ${type}:`, { status: response.status, data })
+      
+      if (response.ok) {
+        switch (type) {
+          case 'provinces':
+            console.log('Setting provinces:', data)
+            setProvinces(data)
+            break
+          case 'districts':
+            console.log('Setting districts:', data)
+            setDistricts(data)
+            break
+          case 'sectors':
+            console.log('Setting sectors:', data)
+            setSectors(data)
+            break
+          case 'cells':
+            console.log('Setting cells:', data)
+            setCells(data)
+            break
+          case 'villages':
+            console.log('Setting villages:', data)
+            setVillages(data)
+            break
+        }
+      } else {
+        console.error(`API Error for ${type}:`, data)
+      }
+    } catch (error) {
+      console.error(`Error fetching ${type}:`, error)
+    } finally {
+      setLoadingLocations(prev => ({ ...prev, [type]: false }))
+    }
+  }
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({
       ...prev,
@@ -69,7 +126,85 @@ export function AddMemberModal({ children, onMemberAdded }: AddMemberModalProps)
     if (success) {
       setSuccess(false)
     }
+
+    // Handle location hierarchy
+    if (field === 'placeOfBirthProvince') {
+      // Clear dependent fields and fetch districts
+      setFormData(prev => ({
+        ...prev,
+        placeOfBirthDistrict: "",
+        placeOfBirthSector: "",
+        placeOfBirthCell: "",
+        placeOfBirthVillage: ""
+      }))
+      setDistricts([])
+      setSectors([])
+      setCells([])
+      setVillages([])
+      if (value) {
+        fetchLocations('districts', value)
+      }
+    } else if (field === 'placeOfBirthDistrict') {
+      // Clear dependent fields and fetch sectors
+      setFormData(prev => ({
+        ...prev,
+        placeOfBirthSector: "",
+        placeOfBirthCell: "",
+        placeOfBirthVillage: ""
+      }))
+      setSectors([])
+      setCells([])
+      setVillages([])
+      if (value) {
+        fetchLocations('sectors', value)
+      }
+    } else if (field === 'placeOfBirthSector') {
+      // Clear dependent fields and fetch cells
+      setFormData(prev => ({
+        ...prev,
+        placeOfBirthCell: "",
+        placeOfBirthVillage: ""
+      }))
+      setCells([])
+      setVillages([])
+      if (value) {
+        fetchLocations('cells', value)
+      }
+    } else if (field === 'placeOfBirthCell') {
+      // Clear dependent fields and fetch villages
+      setFormData(prev => ({
+        ...prev,
+        placeOfBirthVillage: ""
+      }))
+      setVillages([])
+      if (value) {
+        fetchLocations('villages', value)
+      }
+    }
   }
+
+  // Load provinces when modal opens
+  React.useEffect(() => {
+    console.log('Modal open state changed:', open)
+    if (open) {
+      console.log('Modal opened, fetching provinces...')
+      fetchLocations('provinces')
+      
+      // Fallback test data if API fails
+      setTimeout(() => {
+        if (provinces.length === 0) {
+          console.log('No provinces loaded, using fallback data')
+          setProvinces([
+            { id: '1', name: 'Kigali City' },
+            { id: '2', name: 'Southern Province' },
+            { id: '3', name: 'Western Province' },
+            { id: '4', name: 'Northern Province' },
+            { id: '5', name: 'Eastern Province' }
+          ])
+        }
+      }, 2000)
+    }
+  }, [open])
 
   const validateForm = (): boolean => {
     try {
@@ -104,6 +239,7 @@ export function AddMemberModal({ children, onMemberAdded }: AddMemberModalProps)
         // Convert empty strings to null for optional fields
         gender: formData.gender || null,
         birthdate: formData.birthdate || null,
+        placeOfBirthProvince: formData.placeOfBirthProvince || null,
         placeOfBirthDistrict: formData.placeOfBirthDistrict || null,
         placeOfBirthSector: formData.placeOfBirthSector || null,
         placeOfBirthCell: formData.placeOfBirthCell || null,
@@ -145,6 +281,7 @@ export function AddMemberModal({ children, onMemberAdded }: AddMemberModalProps)
           secondname: "",
           gender: "",
           birthdate: "",
+          placeOfBirthProvince: "",
           placeOfBirthDistrict: "",
           placeOfBirthSector: "",
           placeOfBirthCell: "",
@@ -163,6 +300,12 @@ export function AddMemberModal({ children, onMemberAdded }: AddMemberModalProps)
           professionalism: "",
           maritalStatus: "",
         })
+        
+        // Reset location data
+        setDistricts([])
+        setSectors([])
+        setCells([])
+        setVillages([])
         
         // Call the callback to refresh the members list
         if (onMemberAdded) {
@@ -374,52 +517,135 @@ export function AddMemberModal({ children, onMemberAdded }: AddMemberModalProps)
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="placeOfBirthDistrict" className="text-sm font-medium">District</Label>
-                      <Input
-                        id="placeOfBirthDistrict"
-                        placeholder="Enter district"
-                        className="h-11"
-                        value={formData.placeOfBirthDistrict}
-                        onChange={(e) => handleInputChange("placeOfBirthDistrict", e.target.value)}
-                      />
-                      {errors.placeOfBirthDistrict && <p className="text-sm text-red-600">{errors.placeOfBirthDistrict}</p>}
+                      <Label htmlFor="placeOfBirthProvince" className="text-sm font-medium">Province</Label>
+                      <Select
+                        value={formData.placeOfBirthProvince}
+                        onValueChange={(value) => handleInputChange("placeOfBirthProvince", value)}
+                      >
+                        <SelectTrigger className="h-11">
+                          <SelectValue placeholder="Select province" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {console.log('Rendering provinces:', provinces)}
+                          {provinces.map((province) => (
+                            <SelectItem key={province.id} value={province.id}>
+                              {province.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {errors.placeOfBirthProvince && <p className="text-sm text-red-600">{errors.placeOfBirthProvince}</p>}
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="placeOfBirthSector" className="text-sm font-medium">Sector</Label>
-                      <Input
-                        id="placeOfBirthSector"
-                        placeholder="Enter sector"
-                        className="h-11"
-                        value={formData.placeOfBirthSector}
-                        onChange={(e) => handleInputChange("placeOfBirthSector", e.target.value)}
-                      />
-                      {errors.placeOfBirthSector && <p className="text-sm text-red-600">{errors.placeOfBirthSector}</p>}
+                      <Label htmlFor="placeOfBirthDistrict" className="text-sm font-medium">District</Label>
+                      <Select
+                        value={formData.placeOfBirthDistrict}
+                        onValueChange={(value) => handleInputChange("placeOfBirthDistrict", value)}
+                        disabled={!formData.placeOfBirthProvince || districts.length === 0}
+                      >
+                        <SelectTrigger className="h-11">
+                          <SelectValue placeholder={
+                            loadingLocations.districts 
+                              ? "Loading districts..." 
+                              : !formData.placeOfBirthProvince 
+                                ? "Select province first" 
+                                : "Select district"
+                          } />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {districts.map((district) => (
+                            <SelectItem key={district.id} value={district.id}>
+                              {district.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {errors.placeOfBirthDistrict && <p className="text-sm text-red-600">{errors.placeOfBirthDistrict}</p>}
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="placeOfBirthCell" className="text-sm font-medium">Cell</Label>
-                      <Input
-                        id="placeOfBirthCell"
-                        placeholder="Enter cell"
-                        className="h-11"
-                        value={formData.placeOfBirthCell}
-                        onChange={(e) => handleInputChange("placeOfBirthCell", e.target.value)}
-                      />
-                      {errors.placeOfBirthCell && <p className="text-sm text-red-600">{errors.placeOfBirthCell}</p>}
+                      <Label htmlFor="placeOfBirthSector" className="text-sm font-medium">Sector</Label>
+                      <Select
+                        value={formData.placeOfBirthSector}
+                        onValueChange={(value) => handleInputChange("placeOfBirthSector", value)}
+                        disabled={!formData.placeOfBirthDistrict || sectors.length === 0}
+                      >
+                        <SelectTrigger className="h-11">
+                          <SelectValue placeholder={
+                            loadingLocations.sectors 
+                              ? "Loading sectors..." 
+                              : !formData.placeOfBirthDistrict 
+                                ? "Select district first" 
+                                : "Select sector"
+                          } />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {sectors.map((sector) => (
+                            <SelectItem key={sector.id} value={sector.id}>
+                              {sector.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {errors.placeOfBirthSector && <p className="text-sm text-red-600">{errors.placeOfBirthSector}</p>}
                     </div>
 
                     <div className="space-y-2">
+                      <Label htmlFor="placeOfBirthCell" className="text-sm font-medium">Cell</Label>
+                      <Select
+                        value={formData.placeOfBirthCell}
+                        onValueChange={(value) => handleInputChange("placeOfBirthCell", value)}
+                        disabled={!formData.placeOfBirthSector || cells.length === 0}
+                      >
+                        <SelectTrigger className="h-11">
+                          <SelectValue placeholder={
+                            loadingLocations.cells 
+                              ? "Loading cells..." 
+                              : !formData.placeOfBirthSector 
+                                ? "Select sector first" 
+                                : "Select cell"
+                          } />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {cells.map((cell) => (
+                            <SelectItem key={cell.id} value={cell.id}>
+                              {cell.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {errors.placeOfBirthCell && <p className="text-sm text-red-600">{errors.placeOfBirthCell}</p>}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
                       <Label htmlFor="placeOfBirthVillage" className="text-sm font-medium">Village</Label>
-                      <Input
-                        id="placeOfBirthVillage"
-                        placeholder="Enter village"
-                        className="h-11"
+                      <Select
                         value={formData.placeOfBirthVillage}
-                        onChange={(e) => handleInputChange("placeOfBirthVillage", e.target.value)}
-                      />
+                        onValueChange={(value) => handleInputChange("placeOfBirthVillage", value)}
+                        disabled={!formData.placeOfBirthCell || villages.length === 0}
+                      >
+                        <SelectTrigger className="h-11">
+                          <SelectValue placeholder={
+                            loadingLocations.villages 
+                              ? "Loading villages..." 
+                              : !formData.placeOfBirthCell 
+                                ? "Select cell first" 
+                                : "Select village"
+                          } />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {villages.map((village) => (
+                            <SelectItem key={village.id} value={village.id}>
+                              {village.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       {errors.placeOfBirthVillage && <p className="text-sm text-red-600">{errors.placeOfBirthVillage}</p>}
                     </div>
                   </div>

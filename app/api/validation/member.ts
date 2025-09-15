@@ -9,6 +9,7 @@ export const createMemberSchema = z.object({
         const date = new Date(val);
         return isNaN(date.getTime()) ? null : date;
     }),
+    placeOfBirthProvince: z.string().max(255).optional().or(z.literal("")).or(z.null()),
     placeOfBirthDistrict: z.string().max(255).optional().or(z.literal("")).or(z.null()),
     placeOfBirthSector: z.string().max(255).optional().or(z.literal("")).or(z.null()),
     placeOfBirthCell: z.string().max(255).optional().or(z.literal("")).or(z.null()),
