@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { IdProvider } from "@/components/providers/id-provider";
 import { AuthProvider } from "@/components/providers/session-provider";
+import { RoleAccessProvider } from "@/components/providers/role-access-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,9 +29,11 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable}`} suppressHydrationWarning>
         <AuthProvider>
-          <IdProvider>
-            {children}
-          </IdProvider>
+          <RoleAccessProvider>
+            <IdProvider>
+              {children}
+            </IdProvider>
+          </RoleAccessProvider>
         </AuthProvider>
       </body>
     </html>

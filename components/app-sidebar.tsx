@@ -20,6 +20,7 @@ import { NavMain } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
 import { TeamSwitcher } from "@/components/team-switcher";
 import { NoSSR } from "@/components/no-ssr";
+import { useRoleAccess } from "@/components/providers/role-access-provider";
 import {
   Sidebar,
   SidebarContent,
@@ -54,11 +55,10 @@ const data = {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { data: session, status } = useSession();
+  const { userRole } = useRoleAccess();
 
-  // Get user role from session with fallback
-  const userScopedRole = session?.user?.roles?.[0]?.scope || "user";
-  const userRole = userScopedRole;
-  const isLoadingRole = status === "loading";
+  // Get user role from shared context with fallback - always render with available data
+  const userScopedRole = userRole || "user";
 
   const navItems = useMemo((): NavItem[] => {
     const baseItems: NavItem[] = [
@@ -82,9 +82,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           // Only add Member Import for specific roles
           if (
             userScopedRole === "superadmin" ||
-            userScopedRole === "regional" ||
-            userScopedRole === "university" ||
-            (isLoadingRole && userRole === "superadmin")
+            userScopedRole === "region" ||
+            userScopedRole === "university"
           ) {
             baseItems.push({
               name: "Member Import",
@@ -96,10 +95,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           return baseItems;
         })(),
       },
-      // Only show Financial Management for users with specific roles
+      // Only show Organization for users with specific roles
       ...(userScopedRole === "superadmin" ||
-      userScopedRole === "national" ||
-      (isLoadingRole && userRole === "superadmin")
+      userScopedRole === "national"
         ? [
             {
               icon: Building2,
@@ -133,31 +131,37 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           ]
         : []),
 
-      {
-        icon: Calendar,
-        name: "Activities",
-        subItems: (() => {
-          const baseItems: {
-            name: string;
-            path: string;
-            pro: boolean;
-            icon?: LucideIcon;
-          }[] = [
-            {
-              name: "Attendance Tracking",
-              path: "/links/activities/attendance",
-              pro: false,
-            },
-            { name: "Events", path: "/links/activities/events", pro: false },
-          ];
-
-          return baseItems;
-        })(),
-      },
+        {
+          icon: Calendar,
+          name: "Activities",
+          subItems: (() => {
+            const baseItems = [
+              {
+                name: "Attendance Tracking",
+                path: "/links/activities/attendance",
+                pro: false,
+              },
+            ];
+  
+            // Only add Events for specific roles
+            if (
+              userScopedRole === "superadmin" ||
+              userScopedRole === "region" ||
+              userScopedRole === "university"
+            ) {
+              baseItems.push({
+                name: "Events",
+                path: "/links/activities/events",
+                pro: false,
+              });
+            }
+  
+            return baseItems;
+          })(),
+        },
       // Only show Financial Management for users with specific roles
       ...(userScopedRole === "superadmin" ||
-      userScopedRole === "national" ||
-      (isLoadingRole && userRole === "superadmin")
+      userScopedRole === "national"
         ? [
             {
               icon: PieChart,
@@ -181,73 +185,73 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     pro: false,
                     icon: Target,
                   },
+                  {
+                    name: "Reports",
+                    path: "/links/reports/Designations_Reports",
+                    pro: false,
+                  }
                 ];
                 return baseItems;
               })(),
             },
           ]
         : []),
-      {
-        icon: Table,
-        name: "Reports & Analytics",
-        subItems: (() => {
-          const baseItems = [
-            {
-              name: "Engagement Reports",
-              path: "/links/reports/engagement",
-              pro: false,
-            },
-          ];
+      ...(userScopedRole === "superadmin" ||
+        userScopedRole === "national" || 
+        userScopedRole === "region" ||
+        userScopedRole === "university"
+          ? [{
+              icon: Table,
+              name: "Reports & Analytics",
+              subItems: (() => {
+                const baseItems = [
+                  {
+                    name: "Engagement Reports",
+                    path: "/links/reports/engagement",
+                    pro: false,
+                  },
+                ];
 
-          // Only add Membership Reports and Financial Reports for specific roles
-          if (
-            userScopedRole === "superadmin" ||
-            userScopedRole === "regional" ||
-            userScopedRole === "university" ||
-            (isLoadingRole && userRole === "superadmin")
-          ) {
-            baseItems.push(
-              {
-                name: "Membership Reports",
-                path: "/links/reports/membership",
-                pro: false,
-              },
-              {
-                name: "Financial Reports",
-                path: "/links/reports/financial",
-                pro: false,
-              }
-            );
-          }
-          return baseItems;
-        })(),
-      },
+                // Only add Membership Reports for specific roles
+                if (
+                  userScopedRole === "superadmin" ||
+                  userScopedRole === "region" ||
+                  userScopedRole === "university"
+                ) {
+                  baseItems.push(
+                    {
+                      name: "Membership Reports",
+                      path: "/links/reports/membership",
+                      pro: false,
+                    },
+                
+                  );
+                }
+                return baseItems;
+              })(),
+            }]
+          : []),
+      ...(userScopedRole === "superadmin"
+          ? [{
+              icon: Plug,
+              name: "System Administration",
+              subItems: (() => {
+                const baseItems = [
+                  {
+                    name: "User Management",
+                    path: "/links/admin/user-management",
+                    pro: false,
+                  },
+                ];
+                return baseItems;
+              })(),
+            }]
+          : []),
     ];
-
-    // Only show System Administration for users with superadmin scoped role
-    if (
-      userScopedRole === "superadmin" ||
-      (isLoadingRole && userRole === "superadmin")
-    ) {
-      baseItems.push({
-        icon: Plug,
-        name: "System Administration",
-        subItems: (() => {
-          const baseItems = [
-            {
-              name: "User Management",
-              path: "/links/admin/user-management",
-              pro: false,
-            },
-          ];
-          return baseItems;
-        })(),
-      });
-    }
-
+    
     return baseItems;
-    // Dependency array ensures this only recalculates when these values change
-  }, [userScopedRole, isLoadingRole, userRole]);
+    // Dependency array ensures this only recalculates when userScopedRole changes
+  }, [userScopedRole]);
 
   // Transform navItems to match NavMain expected format
   const navMainItems = navItems.map((item) => ({

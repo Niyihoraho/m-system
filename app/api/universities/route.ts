@@ -1,29 +1,55 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getUserScope, generateRLSConditions } from "@/lib/rls";
 
 export async function GET(request: NextRequest) {
     try {
+        // Get user scope for RLS
+        const userScope = await getUserScope();
+        if (!userScope) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
         const { searchParams } = new URL(request.url);
         const regionId = searchParams.get("regionId");
         const universityId = searchParams.get("universityId");
         
         // If specific universityId is provided, return that university
         if (universityId) {
+            const requestedUniversityId = Number(universityId);
+            
+            // Apply RLS check for specific university
+            if (userScope.scope === 'university' && userScope.universityId !== requestedUniversityId) {
+                return NextResponse.json({ error: "Access denied" }, { status: 403 });
+            }
+            
             const university = await prisma.university.findUnique({
-                where: { id: Number(universityId) },
+                where: { id: requestedUniversityId },
                 select: { id: true, name: true, regionId: true, region: { select: { name: true } } }
             });
             if (!university) {
                 return NextResponse.json({ error: "University not found" }, { status: 404 });
             }
+
+            // Additional RLS check for region scope
+            if (userScope.scope === 'region' && userScope.regionId && university.regionId !== userScope.regionId) {
+                return NextResponse.json({ error: "Access denied" }, { status: 403 });
+            }
+
             return NextResponse.json(university, { status: 200 });
         }
         
-        let where: any = {};
+        // Build where clause with RLS conditions
+        const rlsConditions = generateRLSConditions(userScope);
+        let where: any = { ...rlsConditions };
         
-        // Apply region filter if provided
+        // Apply region filter if provided (but it must be within user's scope)
         if (regionId) {
-            where.regionId = Number(regionId);
+            const requestedRegionId = Number(regionId);
+            if (rlsConditions.regionId && requestedRegionId !== rlsConditions.regionId) {
+                return NextResponse.json({ error: "Access denied to requested region" }, { status: 403 });
+            }
+            where.regionId = requestedRegionId;
         }
         
         const universities = await prisma.university.findMany({

@@ -17,14 +17,21 @@ export async function GET(request: NextRequest) {
                 userId: session.user.id
             },
             include: {
-                region: { select: { id: true, name: true } },
-                university: { select: { id: true, name: true } },
-                smallgroup: { select: { id: true, name: true } },
-                alumnismallgroup: { select: { id: true, name: true } }
+                region: true,
+                university: true,
+                smallgroup: true,
+                alumnismallgroup: true
             },
             orderBy: {
-                createdAt: 'desc'
+                assignedAt: 'desc'
             }
+        });
+
+        console.log('User role query result:', {
+            userId: session.user.id,
+            foundRole: !!userRole,
+            roleScope: userRole?.scope,
+            roleData: userRole
         });
 
         if (!userRole) {
@@ -34,27 +41,42 @@ export async function GET(request: NextRequest) {
                     regionId: null,
                     universityId: null,
                     smallGroupId: null,
-                    alumniGroupId: null
+                    alumniGroupId: null,
+                    region: null,
+                    university: null,
+                    smallGroup: null,
+                    alumniGroup: null
                 }
             }, { status: 200 });
         }
 
-        return NextResponse.json({
+        const responseData = {
             scope: {
                 scope: userRole.scope,
                 regionId: userRole.regionId,
                 universityId: userRole.universityId,
                 smallGroupId: userRole.smallGroupId,
                 alumniGroupId: userRole.alumniGroupId,
-                region: userRole.region,
-                university: userRole.university,
-                smallGroup: userRole.smallgroup,
-                alumniGroup: userRole.alumnismallgroup
+                region: userRole.region ? { id: userRole.region.id, name: userRole.region.name } : null,
+                university: userRole.university ? { id: userRole.university.id, name: userRole.university.name } : null,
+                smallGroup: userRole.smallgroup ? { id: userRole.smallgroup.id, name: userRole.smallgroup.name } : null,
+                alumniGroup: userRole.alumnismallgroup ? { id: userRole.alumnismallgroup.id, name: userRole.alumnismallgroup.name } : null
             }
-        }, { status: 200 });
+        };
+        
+        console.log('Returning user scope:', responseData);
+        return NextResponse.json(responseData, { status: 200 });
 
     } catch (error) {
         console.error("Error fetching user scope:", error);
-        return NextResponse.json({ error: 'Failed to fetch user scope' }, { status: 500 });
+        console.error("Error details:", {
+            message: error.message,
+            code: error.code,
+            stack: error.stack
+        });
+        return NextResponse.json({ 
+            error: 'Failed to fetch user scope',
+            details: error.message 
+        }, { status: 500 });
     }
 }

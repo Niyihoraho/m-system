@@ -1,11 +1,20 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { createMemberSchema } from "../validation/member";
+import { getUserScope, generateRLSConditions } from "@/lib/rls";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 
 
 export async function POST(request: NextRequest) {
     try {
+        // Get user scope for RLS
+        const userScope = await getUserScope();
+        if (!userScope) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
         const body = await request.json();
         const validation = createMemberSchema.safeParse(body);
         
@@ -17,6 +26,38 @@ export async function POST(request: NextRequest) {
         }
 
         const data = validation.data;
+
+        // Apply RLS validation to ensure user can only create members in their scope
+        const rlsConditions = generateRLSConditions(userScope);
+        
+        // Check if the member's assigned scope IDs match user's scope
+        if (data.regionId && rlsConditions.regionId && data.regionId !== rlsConditions.regionId) {
+            return NextResponse.json(
+                { error: "You can only create members in your assigned region" },
+                { status: 403 }
+            );
+        }
+        
+        if (data.universityId && rlsConditions.universityId && data.universityId !== rlsConditions.universityId) {
+            return NextResponse.json(
+                { error: "You can only create members in your assigned university" },
+                { status: 403 }
+            );
+        }
+        
+        if (data.smallGroupId && rlsConditions.smallGroupId && data.smallGroupId !== rlsConditions.smallGroupId) {
+            return NextResponse.json(
+                { error: "You can only create members in your assigned small group" },
+                { status: 403 }
+            );
+        }
+        
+        if (data.alumniGroupId && rlsConditions.alumniGroupId && data.alumniGroupId !== rlsConditions.alumniGroupId) {
+            return NextResponse.json(
+                { error: "You can only create members in your assigned alumni group" },
+                { status: 403 }
+            );
+        }
 
         // Helper function to handle empty strings and null values
         const handleEmptyValue = (value: any) => {
@@ -99,6 +140,12 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
     try {
+        // Get user scope for RLS
+        const userScope = await getUserScope();
+        if (!userScope) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
         const { searchParams } = new URL(request.url);
         const id = searchParams.get("id");
         const smallGroupId = searchParams.get("smallGroupId");
@@ -120,24 +167,57 @@ export async function GET(request: NextRequest) {
             if (!member) {
                 return NextResponse.json({ error: "Member not found" }, { status: 404 });
             }
+
+            // Apply RLS check for single member
+            const rlsConditions = generateRLSConditions(userScope);
+            if (rlsConditions.regionId && member.regionId !== rlsConditions.regionId) {
+                return NextResponse.json({ error: "Access denied" }, { status: 403 });
+            }
+            if (rlsConditions.universityId && member.universityId !== rlsConditions.universityId) {
+                return NextResponse.json({ error: "Access denied" }, { status: 403 });
+            }
+            if (rlsConditions.smallGroupId && member.smallGroupId !== rlsConditions.smallGroupId) {
+                return NextResponse.json({ error: "Access denied" }, { status: 403 });
+            }
+            if (rlsConditions.alumniGroupId && member.alumniGroupId !== rlsConditions.alumniGroupId) {
+                return NextResponse.json({ error: "Access denied" }, { status: 403 });
+            }
+
             return NextResponse.json(member, { status: 200 });
         }
 
-        // Build the filter object
-        let where: any = {};
+        // Build the filter object with RLS conditions
+        const rlsConditions = generateRLSConditions(userScope);
+        let where: any = { ...rlsConditions };
 
-        // Apply explicit filters if they exist
+        // Apply explicit filters if they exist (but they must be within user's scope)
         if (smallGroupId) {
-            where.smallGroupId = Number(smallGroupId);
+            const requestedSmallGroupId = Number(smallGroupId);
+            if (rlsConditions.smallGroupId && requestedSmallGroupId !== rlsConditions.smallGroupId) {
+                return NextResponse.json({ error: "Access denied to requested small group" }, { status: 403 });
+            }
+            where.smallGroupId = requestedSmallGroupId;
         } else if (alumniGroupId) {
-            where.alumniGroupId = Number(alumniGroupId);
+            const requestedAlumniGroupId = Number(alumniGroupId);
+            if (rlsConditions.alumniGroupId && requestedAlumniGroupId !== rlsConditions.alumniGroupId) {
+                return NextResponse.json({ error: "Access denied to requested alumni group" }, { status: 403 });
+            }
+            where.alumniGroupId = requestedAlumniGroupId;
         } else if (universityId) {
-            where.universityId = Number(universityId);
+            const requestedUniversityId = Number(universityId);
+            if (rlsConditions.universityId && requestedUniversityId !== rlsConditions.universityId) {
+                return NextResponse.json({ error: "Access denied to requested university" }, { status: 403 });
+            }
+            where.universityId = requestedUniversityId;
         } else if (regionId) {
-            where.regionId = Number(regionId);
+            const requestedRegionId = Number(regionId);
+            if (rlsConditions.regionId && requestedRegionId !== rlsConditions.regionId) {
+                return NextResponse.json({ error: "Access denied to requested region" }, { status: 403 });
+            }
+            where.regionId = requestedRegionId;
         }
 
-        // Fetch members based on the constructed 'where' clause
+        // Fetch members based on the constructed 'where' clause with RLS
         const members = await prisma.member.findMany({
             where,
             include: {
@@ -160,6 +240,12 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
     try {
+        // Get user scope for RLS
+        const userScope = await getUserScope();
+        if (!userScope) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
         const { searchParams } = new URL(request.url);
         const id = searchParams.get("id");
 
@@ -191,6 +277,50 @@ export async function PUT(request: NextRequest) {
             return NextResponse.json(
                 { error: "Member not found" },
                 { status: 404 }
+            );
+        }
+
+        // Apply RLS check - ensure user can only update members in their scope
+        const rlsConditions = generateRLSConditions(userScope);
+        if (rlsConditions.regionId && existingMember.regionId !== rlsConditions.regionId) {
+            return NextResponse.json({ error: "Access denied" }, { status: 403 });
+        }
+        if (rlsConditions.universityId && existingMember.universityId !== rlsConditions.universityId) {
+            return NextResponse.json({ error: "Access denied" }, { status: 403 });
+        }
+        if (rlsConditions.smallGroupId && existingMember.smallGroupId !== rlsConditions.smallGroupId) {
+            return NextResponse.json({ error: "Access denied" }, { status: 403 });
+        }
+        if (rlsConditions.alumniGroupId && existingMember.alumniGroupId !== rlsConditions.alumniGroupId) {
+            return NextResponse.json({ error: "Access denied" }, { status: 403 });
+        }
+
+        // Validate that the updated data doesn't move the member outside user's scope
+        if (data.regionId && rlsConditions.regionId && data.regionId !== rlsConditions.regionId) {
+            return NextResponse.json(
+                { error: "You can only assign members to your assigned region" },
+                { status: 403 }
+            );
+        }
+        
+        if (data.universityId && rlsConditions.universityId && data.universityId !== rlsConditions.universityId) {
+            return NextResponse.json(
+                { error: "You can only assign members to your assigned university" },
+                { status: 403 }
+            );
+        }
+        
+        if (data.smallGroupId && rlsConditions.smallGroupId && data.smallGroupId !== rlsConditions.smallGroupId) {
+            return NextResponse.json(
+                { error: "You can only assign members to your assigned small group" },
+                { status: 403 }
+            );
+        }
+        
+        if (data.alumniGroupId && rlsConditions.alumniGroupId && data.alumniGroupId !== rlsConditions.alumniGroupId) {
+            return NextResponse.json(
+                { error: "You can only assign members to your assigned alumni group" },
+                { status: 403 }
             );
         }
 
@@ -289,6 +419,12 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
     try {
+        // Get user scope for RLS
+        const userScope = await getUserScope();
+        if (!userScope) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
         const { searchParams } = new URL(request.url);
         const id = searchParams.get("id");
 
@@ -309,6 +445,21 @@ export async function DELETE(request: NextRequest) {
                 { error: "Member not found" },
                 { status: 404 }
             );
+        }
+
+        // Apply RLS check - ensure user can only delete members in their scope
+        const rlsConditions = generateRLSConditions(userScope);
+        if (rlsConditions.regionId && existingMember.regionId !== rlsConditions.regionId) {
+            return NextResponse.json({ error: "Access denied" }, { status: 403 });
+        }
+        if (rlsConditions.universityId && existingMember.universityId !== rlsConditions.universityId) {
+            return NextResponse.json({ error: "Access denied" }, { status: 403 });
+        }
+        if (rlsConditions.smallGroupId && existingMember.smallGroupId !== rlsConditions.smallGroupId) {
+            return NextResponse.json({ error: "Access denied" }, { status: 403 });
+        }
+        if (rlsConditions.alumniGroupId && existingMember.alumniGroupId !== rlsConditions.alumniGroupId) {
+            return NextResponse.json({ error: "Access denied" }, { status: 403 });
         }
 
         // Delete the member
