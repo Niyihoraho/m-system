@@ -5,6 +5,7 @@ import axios from 'axios';
 import { Search, RefreshCw, Plus, Edit, Calendar, Users, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
 import { AppSidebar } from "@/components/app-sidebar";
 import { SuperAdminScopeSelector } from "@/components/super-admin-scope-selector";
+import { useUserScope } from "@/hooks/use-user-scope";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -57,9 +58,11 @@ interface Member {
 
 export default function AttendancePage() {
   const [activeTab, setActiveTab] = useState<'mark' | 'view'>('mark');
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   
-  // Scope selection state
+  // User scope hook
+  const { userScope, loading: scopeLoading, getDefaultValues } = useUserScope();
+  
+  // Scope selection state (for super admin only)
   const [regionId, setRegionId] = useState("");
   const [universityId, setUniversityId] = useState("");
   const [smallGroupId, setSmallGroupId] = useState("");
@@ -89,7 +92,7 @@ export default function AttendancePage() {
   const [editMessage, setEditMessage] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
 
-  // Filter dropdowns state
+  // Filter dropdowns state (for view records only)
   const [regions, setRegions] = useState<{id: number, name: string}[]>([]);
   const [universities, setUniversities] = useState<{id: number, name: string, regionId: number}[]>([]);
   const [smallGroups, setSmallGroups] = useState<{id: number, name: string, universityId: number, regionId: number}[]>([]);
@@ -105,16 +108,23 @@ export default function AttendancePage() {
     { value: "excused", label: "Excused" },
   ];
 
-  // Check if user is super admin
+  // Set default scope values when user scope is loaded
   useEffect(() => {
-    // For now, assume super admin - you can implement proper auth check
-    setIsSuperAdmin(true);
-  }, []);
+    if (userScope && !scopeLoading) {
+      const defaults = getDefaultValues();
+      setRegionId(defaults.regionId || "");
+      setUniversityId(defaults.universityId || "");
+      setSmallGroupId(defaults.smallGroupId || "");
+      setAlumniGroupId(defaults.alumniGroupId || "");
+    }
+  }, [userScope, scopeLoading, getDefaultValues]);
 
-  // Fetch events
+  // Fetch events based on user scope
   useEffect(() => {
-    fetchEvents();
-  }, []);
+    if (!scopeLoading) {
+      fetchEvents();
+    }
+  }, [scopeLoading, regionId, universityId, smallGroupId, alumniGroupId]);
 
   // Fetch regions for filter dropdowns
   useEffect(() => {
@@ -163,7 +173,20 @@ export default function AttendancePage() {
 
   const fetchEvents = async () => {
     try {
-      const response = await axios.get('/api/events');
+      let url = '/api/events';
+      const params = new URLSearchParams();
+      
+      // Add scope-based filters for events
+      if (regionId) params.append("regionId", regionId);
+      if (universityId) params.append("universityId", universityId);
+      if (smallGroupId) params.append("smallGroupId", smallGroupId);
+      if (alumniGroupId) params.append("alumniGroupId", alumniGroupId);
+      
+      if (params.toString()) {
+        url += "?" + params.toString();
+      }
+      
+      const response = await axios.get(url);
       setEvents(response.data);
     } catch (error) {
       console.error('Error fetching events:', error);
@@ -216,16 +239,15 @@ export default function AttendancePage() {
       let url = "/api/members";
       const params = new URLSearchParams();
       
-      if (isSuperAdmin) {
-        if (smallGroupId) {
-          params.append("smallGroupId", smallGroupId);
-        } else if (alumniGroupId) {
-          params.append("alumniGroupId", alumniGroupId);
-        } else if (universityId) {
-          params.append("universityId", universityId);
-        } else if (regionId) {
-          params.append("regionId", regionId);
-        }
+      // Add scope-based filters for members
+      if (smallGroupId) {
+        params.append("smallGroupId", smallGroupId);
+      } else if (alumniGroupId) {
+        params.append("alumniGroupId", alumniGroupId);
+      } else if (universityId) {
+        params.append("universityId", universityId);
+      } else if (regionId) {
+        params.append("regionId", regionId);
       }
       
       if (params.toString()) {
@@ -269,12 +291,11 @@ export default function AttendancePage() {
       if (selectedSmallGroupFilter) params.append("smallGroupId", selectedSmallGroupFilter);
       if (selectedAlumniGroupFilter) params.append("alumniGroupId", selectedAlumniGroupFilter);
       
-      if (isSuperAdmin) {
-        if (regionId) params.append("regionId", regionId);
-        if (universityId) params.append("universityId", universityId);
-        if (smallGroupId) params.append("smallGroupId", smallGroupId);
-        if (alumniGroupId) params.append("alumniGroupId", alumniGroupId);
-      }
+      // Add scope-based filters for attendance records
+      if (regionId) params.append("regionId", regionId);
+      if (universityId) params.append("universityId", universityId);
+      if (smallGroupId) params.append("smallGroupId", smallGroupId);
+      if (alumniGroupId) params.append("alumniGroupId", alumniGroupId);
       
       const response = await axios.get(`/api/attendance?${params.toString()}`);
       setAttendanceRecords(response.data);
@@ -504,12 +525,48 @@ export default function AttendancePage() {
             </div>
 
             {/* Super Admin Scope Selector */}
-            {isSuperAdmin && (
+            {userScope?.scope === 'superadmin' && (
               <SuperAdminScopeSelector onScopeChange={handleScopeChange} />
             )}
 
+            {/* Show current scope for non-super admin users */}
+            {userScope && userScope.scope !== 'superadmin' && !scopeLoading && (
+              <Card className="mb-4">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <span>Current Scope:</span>
+                    <span className="font-medium text-foreground capitalize">{userScope.scope}</span>
+                    {userScope.region && (
+                      <span>• {userScope.region.name}</span>
+                    )}
+                    {userScope.university && (
+                      <span>• {userScope.university.name}</span>
+                    )}
+                    {userScope.smallGroup && (
+                      <span>• {userScope.smallGroup.name}</span>
+                    )}
+                    {userScope.alumniGroup && (
+                      <span>• {userScope.alumniGroup.name}</span>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Loading state */}
+            {scopeLoading && (
+              <Card className="mb-4">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Loading user scope...</span>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Mark Attendance Tab */}
-            {activeTab === 'mark' && (
+            {activeTab === 'mark' && !scopeLoading && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -640,7 +697,7 @@ export default function AttendancePage() {
             )}
 
             {/* View Attendance Records Tab */}
-            {activeTab === 'view' && (
+            {activeTab === 'view' && !scopeLoading && (
               <div className="space-y-4">
                 {/* Filter Controls */}
                 <Card>
@@ -694,78 +751,83 @@ export default function AttendancePage() {
                           className="h-11"
                         />
                       </div>
-                      <div className="min-w-[180px]">
-                        <Label htmlFor="regionFilter">Region</Label>
-                        <Select value={selectedRegionFilter} onValueChange={handleRegionFilterChange}>
-                          <SelectTrigger className="h-11">
-                            <SelectValue placeholder="All Regions" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {regions.map((region) => (
-                              <SelectItem key={region.id} value={region.id.toString()}>
-                                {region.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="min-w-[180px]">
-                        <Label htmlFor="universityFilter">University</Label>
-                        <Select 
-                          value={selectedUniversityFilter} 
-                          onValueChange={handleUniversityFilterChange}
-                          disabled={!selectedRegionFilter}
-                        >
-                          <SelectTrigger className="h-11">
-                            <SelectValue placeholder={selectedRegionFilter ? "All Universities" : "Select region first"} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {universities.map((university) => (
-                              <SelectItem key={university.id} value={university.id.toString()}>
-                                {university.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="min-w-[180px]">
-                        <Label htmlFor="smallGroupFilter">Small Group</Label>
-                        <Select 
-                          value={selectedSmallGroupFilter} 
-                          onValueChange={handleSmallGroupFilterChange}
-                          disabled={!selectedUniversityFilter}
-                        >
-                          <SelectTrigger className="h-11">
-                            <SelectValue placeholder={selectedUniversityFilter ? "All Small Groups" : "Select university first"} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {smallGroups.map((smallGroup) => (
-                              <SelectItem key={smallGroup.id} value={smallGroup.id.toString()}>
-                                {smallGroup.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="min-w-[180px]">
-                        <Label htmlFor="alumniGroupFilter">Alumni Group</Label>
-                        <Select 
-                          value={selectedAlumniGroupFilter} 
-                          onValueChange={handleAlumniGroupFilterChange}
-                          disabled={!selectedRegionFilter}
-                        >
-                          <SelectTrigger className="h-11">
-                            <SelectValue placeholder={selectedRegionFilter ? "All Alumni Groups" : "Select region first"} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {alumniGroups.map((alumniGroup) => (
-                              <SelectItem key={alumniGroup.id} value={alumniGroup.id.toString()}>
-                                {alumniGroup.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                      {/* Only show scope filters for super admin */}
+                      {userScope?.scope === 'superadmin' && (
+                        <>
+                          <div className="min-w-[180px]">
+                            <Label htmlFor="regionFilter">Region</Label>
+                            <Select value={selectedRegionFilter} onValueChange={handleRegionFilterChange}>
+                              <SelectTrigger className="h-11">
+                                <SelectValue placeholder="All Regions" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {regions.map((region) => (
+                                  <SelectItem key={region.id} value={region.id.toString()}>
+                                    {region.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="min-w-[180px]">
+                            <Label htmlFor="universityFilter">University</Label>
+                            <Select 
+                              value={selectedUniversityFilter} 
+                              onValueChange={handleUniversityFilterChange}
+                              disabled={!selectedRegionFilter}
+                            >
+                              <SelectTrigger className="h-11">
+                                <SelectValue placeholder={selectedRegionFilter ? "All Universities" : "Select region first"} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {universities.map((university) => (
+                                  <SelectItem key={university.id} value={university.id.toString()}>
+                                    {university.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="min-w-[180px]">
+                            <Label htmlFor="smallGroupFilter">Small Group</Label>
+                            <Select 
+                              value={selectedSmallGroupFilter} 
+                              onValueChange={handleSmallGroupFilterChange}
+                              disabled={!selectedUniversityFilter}
+                            >
+                              <SelectTrigger className="h-11">
+                                <SelectValue placeholder={selectedUniversityFilter ? "All Small Groups" : "Select university first"} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {smallGroups.map((smallGroup) => (
+                                  <SelectItem key={smallGroup.id} value={smallGroup.id.toString()}>
+                                    {smallGroup.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="min-w-[180px]">
+                            <Label htmlFor="alumniGroupFilter">Alumni Group</Label>
+                            <Select 
+                              value={selectedAlumniGroupFilter} 
+                              onValueChange={handleAlumniGroupFilterChange}
+                              disabled={!selectedRegionFilter}
+                            >
+                              <SelectTrigger className="h-11">
+                                <SelectValue placeholder={selectedRegionFilter ? "All Alumni Groups" : "Select region first"} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {alumniGroups.map((alumniGroup) => (
+                                  <SelectItem key={alumniGroup.id} value={alumniGroup.id.toString()}>
+                                    {alumniGroup.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </>
+                      )}
                       <div className="flex-1 min-w-[200px]">
                         <Label htmlFor="search">Search</Label>
                         <div className="relative">

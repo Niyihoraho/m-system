@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getUserScope, getTableRLSConditions } from "@/lib/rls";
 
 export async function GET(request: NextRequest) {
     try {
@@ -10,6 +11,12 @@ export async function GET(request: NextRequest) {
         const smallGroupId = searchParams.get("smallGroupId");
         const alumniGroupId = searchParams.get("alumniGroupId");
         const type = searchParams.get("type");
+        
+        // Get user scope for RLS
+        const userScope = await getUserScope();
+        if (!userScope) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
         
         let where: any = {};
         
@@ -29,6 +36,17 @@ export async function GET(request: NextRequest) {
                 return NextResponse.json({ error: "Event not found" }, { status: 404 });
             }
 
+            // Apply RLS check for specific event
+            const rlsConditions = getTableRLSConditions(userScope, 'permanentministryevent');
+            const hasAccess = Object.keys(rlsConditions).every(key => {
+                if (rlsConditions[key] === null || rlsConditions[key] === undefined) return true;
+                return event[key] === rlsConditions[key];
+            });
+
+            if (!hasAccess) {
+                return NextResponse.json({ error: "Access denied" }, { status: 403 });
+            }
+
             // Transform the data to match the frontend interface (camelCase)
             const transformedEvent = {
                 ...event,
@@ -39,18 +57,24 @@ export async function GET(request: NextRequest) {
             return NextResponse.json([transformedEvent], { status: 200 });
         }
         
-        // Apply explicit filters if provided
-        if (regionId) {
-            where.regionId = Number(regionId);
-        }
-        if (universityId) {
-            where.universityId = Number(universityId);
-        }
-        if (smallGroupId) {
-            where.smallGroupId = Number(smallGroupId);
-        }
-        if (alumniGroupId) {
-            where.alumniGroupId = Number(alumniGroupId);
+        // Apply RLS conditions first
+        const rlsConditions = getTableRLSConditions(userScope, 'permanentministryevent');
+        where = { ...where, ...rlsConditions };
+        
+        // Apply explicit filters if provided (these override RLS for super admin)
+        if (userScope.scope === 'superadmin') {
+            if (regionId) {
+                where.regionId = Number(regionId);
+            }
+            if (universityId) {
+                where.universityId = Number(universityId);
+            }
+            if (smallGroupId) {
+                where.smallGroupId = Number(smallGroupId);
+            }
+            if (alumniGroupId) {
+                where.alumniGroupId = Number(alumniGroupId);
+            }
         }
         if (type) {
             where.type = type;
@@ -84,6 +108,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
+        console.log('Event creation request body:', body);
         const { name, type, regionId, universityId, smallGroupId, alumniGroupId, isActive } = body;
 
         if (!name || name.trim() === '') {
@@ -100,7 +125,52 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        if (!regionId) {
+        // Validate event type enum
+        const validTypes = ['bible_study', 'discipleship', 'evangelism', 'cell_meeting', 'alumni_meeting', 'other'];
+        if (!validTypes.includes(type)) {
+            return NextResponse.json(
+                { error: `Invalid event type. Must be one of: ${validTypes.join(', ')}` },
+                { status: 400 }
+            );
+        }
+
+        // Get user scope for RLS and auto-filling scope fields
+        const userScope = await getUserScope();
+        console.log('User scope:', userScope);
+        if (!userScope) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        // Auto-fill scope fields based on user scope if not provided
+        let finalRegionId = regionId;
+        let finalUniversityId = universityId;
+        let finalSmallGroupId = smallGroupId;
+        let finalAlumniGroupId = alumniGroupId;
+
+        // For non-superadmin users, use their scope IDs if fields are not provided
+        if (userScope.scope !== 'superadmin') {
+            if (!finalRegionId && userScope.regionId) {
+                finalRegionId = userScope.regionId;
+            }
+            if (!finalUniversityId && userScope.universityId) {
+                finalUniversityId = userScope.universityId;
+            }
+            if (!finalSmallGroupId && userScope.smallGroupId) {
+                finalSmallGroupId = userScope.smallGroupId;
+            }
+            if (!finalAlumniGroupId && userScope.alumniGroupId) {
+                finalAlumniGroupId = userScope.alumniGroupId;
+            }
+        }
+        
+        console.log('Final scope values:', {
+            finalRegionId,
+            finalUniversityId,
+            finalSmallGroupId,
+            finalAlumniGroupId
+        });
+
+        if (!finalRegionId) {
             return NextResponse.json(
                 { error: "Region ID is required" },
                 { status: 400 }
@@ -109,7 +179,7 @@ export async function POST(request: NextRequest) {
 
         // Verify region exists
         const region = await prisma.region.findUnique({
-            where: { id: Number(regionId) }
+            where: { id: Number(finalRegionId) }
         });
 
         if (!region) {
@@ -120,9 +190,9 @@ export async function POST(request: NextRequest) {
         }
 
         // If university is provided, verify it exists and belongs to the region
-        if (universityId) {
+        if (finalUniversityId) {
             const university = await prisma.university.findUnique({
-                where: { id: Number(universityId) }
+                where: { id: Number(finalUniversityId) }
             });
 
             if (!university) {
@@ -132,7 +202,7 @@ export async function POST(request: NextRequest) {
                 );
             }
 
-            if (university.regionId !== Number(regionId)) {
+            if (university.regionId !== Number(finalRegionId)) {
                 return NextResponse.json(
                     { error: "University does not belong to the selected region" },
                     { status: 400 }
@@ -141,9 +211,9 @@ export async function POST(request: NextRequest) {
         }
 
         // If small group is provided, verify it exists and belongs to the university/region
-        if (smallGroupId) {
+        if (finalSmallGroupId) {
             const smallGroup = await prisma.smallgroup.findUnique({
-                where: { id: Number(smallGroupId) }
+                where: { id: Number(finalSmallGroupId) }
             });
 
             if (!smallGroup) {
@@ -153,14 +223,14 @@ export async function POST(request: NextRequest) {
                 );
             }
 
-            if (smallGroup.regionId !== Number(regionId)) {
+            if (smallGroup.regionId !== Number(finalRegionId)) {
                 return NextResponse.json(
                     { error: "Small group does not belong to the selected region" },
                     { status: 400 }
                 );
             }
 
-            if (universityId && smallGroup.universityId !== Number(universityId)) {
+            if (finalUniversityId && smallGroup.universityId !== Number(finalUniversityId)) {
                 return NextResponse.json(
                     { error: "Small group does not belong to the selected university" },
                     { status: 400 }
@@ -169,9 +239,9 @@ export async function POST(request: NextRequest) {
         }
 
         // If alumni group is provided, verify it exists and belongs to the region
-        if (alumniGroupId) {
+        if (finalAlumniGroupId) {
             const alumniGroup = await prisma.alumnismallgroup.findUnique({
-                where: { id: Number(alumniGroupId) }
+                where: { id: Number(finalAlumniGroupId) }
             });
 
             if (!alumniGroup) {
@@ -181,7 +251,7 @@ export async function POST(request: NextRequest) {
                 );
             }
 
-            if (alumniGroup.regionId !== Number(regionId)) {
+            if (alumniGroup.regionId !== Number(finalRegionId)) {
                 return NextResponse.json(
                     { error: "Alumni group does not belong to the selected region" },
                     { status: 400 }
@@ -193,10 +263,10 @@ export async function POST(request: NextRequest) {
             data: {
                 name: name.trim(),
                 type: type.trim(),
-                regionId: Number(regionId),
-                universityId: universityId ? Number(universityId) : null,
-                smallGroupId: smallGroupId ? Number(smallGroupId) : null,
-                alumniGroupId: alumniGroupId ? Number(alumniGroupId) : null,
+                regionId: Number(finalRegionId),
+                universityId: finalUniversityId ? Number(finalUniversityId) : null,
+                smallGroupId: finalSmallGroupId ? Number(finalSmallGroupId) : null,
+                alumniGroupId: finalAlumniGroupId ? Number(finalAlumniGroupId) : null,
                 isActive: isActive ?? true,
                 updatedAt: new Date()
             },
@@ -251,6 +321,15 @@ export async function PUT(request: NextRequest) {
             );
         }
 
+        // Validate event type enum
+        const validTypes = ['bible_study', 'discipleship', 'evangelism', 'cell_meeting', 'alumni_meeting', 'other'];
+        if (!validTypes.includes(type)) {
+            return NextResponse.json(
+                { error: `Invalid event type. Must be one of: ${validTypes.join(', ')}` },
+                { status: 400 }
+            );
+        }
+
         if (!regionId) {
             return NextResponse.json(
                 { error: "Region ID is required" },
@@ -272,7 +351,7 @@ export async function PUT(request: NextRequest) {
 
         // Verify region exists
         const region = await prisma.region.findUnique({
-            where: { id: Number(regionId) }
+            where: { id: Number(finalRegionId) }
         });
 
         if (!region) {
@@ -283,9 +362,9 @@ export async function PUT(request: NextRequest) {
         }
 
         // If university is provided, verify it exists and belongs to the region
-        if (universityId) {
+        if (finalUniversityId) {
             const university = await prisma.university.findUnique({
-                where: { id: Number(universityId) }
+                where: { id: Number(finalUniversityId) }
             });
 
             if (!university) {
@@ -295,7 +374,7 @@ export async function PUT(request: NextRequest) {
                 );
             }
 
-            if (university.regionId !== Number(regionId)) {
+            if (university.regionId !== Number(finalRegionId)) {
                 return NextResponse.json(
                     { error: "University does not belong to the selected region" },
                     { status: 400 }
@@ -304,9 +383,9 @@ export async function PUT(request: NextRequest) {
         }
 
         // If small group is provided, verify it exists and belongs to the university/region
-        if (smallGroupId) {
+        if (finalSmallGroupId) {
             const smallGroup = await prisma.smallgroup.findUnique({
-                where: { id: Number(smallGroupId) }
+                where: { id: Number(finalSmallGroupId) }
             });
 
             if (!smallGroup) {
@@ -316,14 +395,14 @@ export async function PUT(request: NextRequest) {
                 );
             }
 
-            if (smallGroup.regionId !== Number(regionId)) {
+            if (smallGroup.regionId !== Number(finalRegionId)) {
                 return NextResponse.json(
                     { error: "Small group does not belong to the selected region" },
                     { status: 400 }
                 );
             }
 
-            if (universityId && smallGroup.universityId !== Number(universityId)) {
+            if (finalUniversityId && smallGroup.universityId !== Number(finalUniversityId)) {
                 return NextResponse.json(
                     { error: "Small group does not belong to the selected university" },
                     { status: 400 }
@@ -332,9 +411,9 @@ export async function PUT(request: NextRequest) {
         }
 
         // If alumni group is provided, verify it exists and belongs to the region
-        if (alumniGroupId) {
+        if (finalAlumniGroupId) {
             const alumniGroup = await prisma.alumnismallgroup.findUnique({
-                where: { id: Number(alumniGroupId) }
+                where: { id: Number(finalAlumniGroupId) }
             });
 
             if (!alumniGroup) {
@@ -344,7 +423,7 @@ export async function PUT(request: NextRequest) {
                 );
             }
 
-            if (alumniGroup.regionId !== Number(regionId)) {
+            if (alumniGroup.regionId !== Number(finalRegionId)) {
                 return NextResponse.json(
                     { error: "Alumni group does not belong to the selected region" },
                     { status: 400 }
@@ -357,10 +436,10 @@ export async function PUT(request: NextRequest) {
             data: {
                 name: name.trim(),
                 type: type.trim(),
-                regionId: Number(regionId),
-                universityId: universityId ? Number(universityId) : null,
-                smallGroupId: smallGroupId ? Number(smallGroupId) : null,
-                alumniGroupId: alumniGroupId ? Number(alumniGroupId) : null,
+                regionId: Number(finalRegionId),
+                universityId: finalUniversityId ? Number(finalUniversityId) : null,
+                smallGroupId: finalSmallGroupId ? Number(finalSmallGroupId) : null,
+                alumniGroupId: finalAlumniGroupId ? Number(finalAlumniGroupId) : null,
                 isActive: isActive ?? true,
                 updatedAt: new Date()
             },

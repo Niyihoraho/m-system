@@ -15,6 +15,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/ui copy/sheet"
 import { UserPlus, User, Mail, Phone, MapPin, GraduationCap, Building2, Users, Church, Calendar } from "lucide-react"
+import { useUserScope } from "@/hooks/use-user-scope"
 import { createMemberSchema } from "@/app/api/validation/member"
 
 interface AddMemberModalProps {
@@ -27,6 +28,14 @@ export function AddMemberModal({ children, onMemberAdded }: AddMemberModalProps)
   const [isLoading, setIsLoading] = React.useState(false)
   const [errors, setErrors] = React.useState<Record<string, string>>({})
   const [success, setSuccess] = React.useState(false)
+  
+  // Get user scope and visibility rules
+  const { userScope, loading: scopeLoading, getVisibleFields, getDefaultValues } = useUserScope()
+  const visibleFields = getVisibleFields()
+  
+  // Memoize default values to prevent infinite re-renders
+  const defaultValues = React.useMemo(() => getDefaultValues(), [userScope])
+  
   const [formData, setFormData] = React.useState({
     firstname: "",
     secondname: "",
@@ -59,6 +68,63 @@ export function AddMemberModal({ children, onMemberAdded }: AddMemberModalProps)
   const [cells, setCells] = React.useState<Array<{id: string, name: string}>>([])
   const [villages, setVillages] = React.useState<Array<{id: string, name: string}>>([])
   const [loadingLocations, setLoadingLocations] = React.useState<{[key: string]: boolean}>({})
+
+  // Small groups state
+  const [smallGroups, setSmallGroups] = React.useState<Array<{id: number, name: string}>>([])
+  const [loadingSmallGroups, setLoadingSmallGroups] = React.useState(false)
+
+  // Organization data states for superadmin
+  const [regions, setRegions] = React.useState<Array<{id: number, name: string}>>([])
+  const [universities, setUniversities] = React.useState<Array<{id: number, name: string}>>([])
+  const [alumniGroups, setAlumniGroups] = React.useState<Array<{id: number, name: string}>>([])
+  const [loadingOrganizations, setLoadingOrganizations] = React.useState<{[key: string]: boolean}>({})
+
+  // Update form data when user scope loads
+  React.useEffect(() => {
+    if (userScope && !scopeLoading) {
+      setFormData(prev => ({
+        ...prev,
+        regionId: defaultValues.regionId || "",
+        universityId: defaultValues.universityId || "",
+        smallGroupId: defaultValues.smallGroupId || "",
+        alumniGroupId: defaultValues.alumniGroupId || "",
+      }))
+    }
+  }, [userScope, scopeLoading, defaultValues])
+
+  // Fetch small groups when university ID changes
+  React.useEffect(() => {
+    if (formData.universityId) {
+      fetchSmallGroups(formData.universityId)
+    } else {
+      setSmallGroups([])
+    }
+  }, [formData.universityId])
+
+  // Fetch regions when superadmin scope loads
+  React.useEffect(() => {
+    if (userScope?.scope === 'superadmin' && !scopeLoading) {
+      fetchRegions()
+    }
+  }, [userScope?.scope, scopeLoading])
+
+  // Fetch universities when region changes (for superadmin)
+  React.useEffect(() => {
+    if (userScope?.scope === 'superadmin' && formData.regionId) {
+      fetchUniversities(formData.regionId)
+    } else {
+      setUniversities([])
+    }
+  }, [formData.regionId, userScope?.scope])
+
+  // Fetch alumni groups when region changes (for superadmin)
+  React.useEffect(() => {
+    if (userScope?.scope === 'superadmin' && formData.regionId) {
+      fetchAlumniGroups(formData.regionId)
+    } else {
+      setAlumniGroups([])
+    }
+  }, [formData.regionId, userScope?.scope])
 
   // Fetch location data
   const fetchLocations = async (type: string, parentId?: string) => {
@@ -105,6 +171,97 @@ export function AddMemberModal({ children, onMemberAdded }: AddMemberModalProps)
       console.error(`Error fetching ${type}:`, error)
     } finally {
       setLoadingLocations(prev => ({ ...prev, [type]: false }))
+    }
+  }
+
+  // Fetch small groups by university ID
+  const fetchSmallGroups = async (universityId: string) => {
+    if (!universityId) {
+      setSmallGroups([])
+      return
+    }
+    
+    setLoadingSmallGroups(true)
+    try {
+      const response = await fetch(`/api/small-groups?universityId=${universityId}`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch small groups')
+      }
+      
+      const data = await response.json()
+      setSmallGroups(data)
+    } catch (error) {
+      console.error('Error fetching small groups:', error)
+      setSmallGroups([])
+    } finally {
+      setLoadingSmallGroups(false)
+    }
+  }
+
+  // Fetch regions (for superadmin)
+  const fetchRegions = async () => {
+    setLoadingOrganizations(prev => ({ ...prev, regions: true }))
+    try {
+      const response = await fetch('/api/regions')
+      if (!response.ok) {
+        throw new Error('Failed to fetch regions')
+      }
+      
+      const data = await response.json()
+      setRegions(data)
+    } catch (error) {
+      console.error('Error fetching regions:', error)
+      setRegions([])
+    } finally {
+      setLoadingOrganizations(prev => ({ ...prev, regions: false }))
+    }
+  }
+
+  // Fetch universities by region ID (for superadmin)
+  const fetchUniversities = async (regionId: string) => {
+    if (!regionId) {
+      setUniversities([])
+      return
+    }
+    
+    setLoadingOrganizations(prev => ({ ...prev, universities: true }))
+    try {
+      const response = await fetch(`/api/universities?regionId=${regionId}`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch universities')
+      }
+      
+      const data = await response.json()
+      setUniversities(data)
+    } catch (error) {
+      console.error('Error fetching universities:', error)
+      setUniversities([])
+    } finally {
+      setLoadingOrganizations(prev => ({ ...prev, universities: false }))
+    }
+  }
+
+  // Fetch alumni groups by region ID (for superadmin)
+  const fetchAlumniGroups = async (regionId: string) => {
+    if (!regionId) {
+      setAlumniGroups([])
+      return
+    }
+    
+    setLoadingOrganizations(prev => ({ ...prev, alumniGroups: true }))
+    try {
+      const response = await fetch(`/api/alumni-small-groups?regionId=${regionId}`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch alumni groups')
+      }
+      
+      const data = await response.json()
+      setAlumniGroups(data)
+    } catch (error) {
+      console.error('Error fetching alumni groups:', error)
+      setAlumniGroups([])
+    } finally {
+      setLoadingOrganizations(prev => ({ ...prev, alumniGroups: false }))
     }
   }
 
@@ -748,73 +905,198 @@ export function AddMemberModal({ children, onMemberAdded }: AddMemberModalProps)
                 <div className="space-y-4">
                   <h4 className="text-md font-semibold text-foreground border-b pb-2">Organization Information</h4>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="regionId" className="text-sm font-medium flex items-center gap-2">
-                        <MapPin className="h-4 w-4" />
-                        Region ID
-                      </Label>
-                      <Input
-                        id="regionId"
-                        type="number"
-                        placeholder="Enter region ID"
-                        className="h-11"
-                        value={formData.regionId}
-                        onChange={(e) => handleInputChange("regionId", e.target.value)}
-                      />
-                      {errors.regionId && <p className="text-sm text-red-600">{errors.regionId}</p>}
+                  {scopeLoading ? (
+                    <div className="text-center py-4">
+                      <p className="text-sm text-muted-foreground">Loading organization scope...</p>
                     </div>
+                  ) : (
+                    <>
+                      {/* Show current scope info */}
+                      {userScope && (
+                        <div className="bg-muted/50 p-3 rounded-lg">
+                          <p className="text-sm text-muted-foreground">
+                            <strong>Current Scope:</strong> {userScope.scope.charAt(0).toUpperCase() + userScope.scope.slice(1)}
+                            {userScope.region && ` - ${userScope.region.name}`}
+                            {userScope.university && ` - ${userScope.university.name}`}
+                            {userScope.smallGroup && ` - ${userScope.smallGroup.name}`}
+                            {userScope.alumniGroup && ` - ${userScope.alumniGroup.name}`}
+                          </p>
+                        </div>
+                      )}
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {visibleFields.region && (
+                          <div className="space-y-2">
+                            <Label htmlFor="regionId" className="text-sm font-medium flex items-center gap-2">
+                              <MapPin className="h-4 w-4" />
+                              Region
+                            </Label>
+                            {userScope?.scope === 'superadmin' ? (
+                              <Select
+                                value={formData.regionId}
+                                onValueChange={(value) => handleInputChange("regionId", value)}
+                                disabled={loadingOrganizations.regions}
+                              >
+                                <SelectTrigger className="h-11">
+                                  <SelectValue placeholder={
+                                    loadingOrganizations.regions 
+                                      ? "Loading regions..." 
+                                      : "Select region"
+                                  } />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {regions.map((region) => (
+                                    <SelectItem key={region.id} value={region.id.toString()}>
+                                      {region.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <Input
+                                id="regionId"
+                                type="number"
+                                placeholder="Enter region ID"
+                                className="h-11"
+                                value={formData.regionId}
+                                onChange={(e) => handleInputChange("regionId", e.target.value)}
+                              />
+                            )}
+                            {errors.regionId && <p className="text-sm text-red-600">{errors.regionId}</p>}
+                          </div>
+                        )}
 
-                    <div className="space-y-2">
-                      <Label htmlFor="universityId" className="text-sm font-medium flex items-center gap-2">
-                        <Building2 className="h-4 w-4" />
-                        University ID
-                      </Label>
-                      <Input
-                        id="universityId"
-                        type="number"
-                        placeholder="Enter university ID"
-                        className="h-11"
-                        value={formData.universityId}
-                        onChange={(e) => handleInputChange("universityId", e.target.value)}
-                      />
-                      {errors.universityId && <p className="text-sm text-red-600">{errors.universityId}</p>}
-                    </div>
-                  </div>
+                        {visibleFields.university && (
+                          <div className="space-y-2">
+                            <Label htmlFor="universityId" className="text-sm font-medium flex items-center gap-2">
+                              <Building2 className="h-4 w-4" />
+                              University
+                            </Label>
+                            {userScope?.scope === 'superadmin' ? (
+                              <Select
+                                value={formData.universityId}
+                                onValueChange={(value) => handleInputChange("universityId", value)}
+                                disabled={!formData.regionId || loadingOrganizations.universities}
+                              >
+                                <SelectTrigger className="h-11">
+                                  <SelectValue placeholder={
+                                    loadingOrganizations.universities 
+                                      ? "Loading universities..." 
+                                      : !formData.regionId 
+                                        ? "Select region first" 
+                                        : "Select university"
+                                  } />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {universities.map((university) => (
+                                    <SelectItem key={university.id} value={university.id.toString()}>
+                                      {university.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <Input
+                                id="universityId"
+                                type="number"
+                                placeholder="Enter university ID"
+                                className="h-11"
+                                value={formData.universityId}
+                                onChange={(e) => handleInputChange("universityId", e.target.value)}
+                              />
+                            )}
+                            {errors.universityId && <p className="text-sm text-red-600">{errors.universityId}</p>}
+                          </div>
+                        )}
+                      </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="smallGroupId" className="text-sm font-medium flex items-center gap-2">
-                        <Users className="h-4 w-4" />
-                        Small Group ID
-                      </Label>
-                      <Input
-                        id="smallGroupId"
-                        type="number"
-                        placeholder="Enter small group ID"
-                        className="h-11"
-                        value={formData.smallGroupId}
-                        onChange={(e) => handleInputChange("smallGroupId", e.target.value)}
-                      />
-                      {errors.smallGroupId && <p className="text-sm text-red-600">{errors.smallGroupId}</p>}
-                    </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {visibleFields.smallGroup && (
+                          <div className="space-y-2">
+                            <Label htmlFor="smallGroupId" className="text-sm font-medium flex items-center gap-2">
+                              <Users className="h-4 w-4" />
+                              Small Group
+                            </Label>
+                            <Select
+                              value={formData.smallGroupId}
+                              onValueChange={(value) => handleInputChange("smallGroupId", value)}
+                              disabled={!formData.universityId || loadingSmallGroups}
+                            >
+                              <SelectTrigger className="h-11">
+                                <SelectValue placeholder={
+                                  loadingSmallGroups 
+                                    ? "Loading small groups..." 
+                                    : !formData.universityId 
+                                      ? "Select university first" 
+                                      : "Select small group"
+                                } />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {smallGroups.map((group) => (
+                                  <SelectItem key={group.id} value={group.id.toString()}>
+                                    {group.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {errors.smallGroupId && <p className="text-sm text-red-600">{errors.smallGroupId}</p>}
+                          </div>
+                        )}
 
-                    <div className="space-y-2">
-                      <Label htmlFor="alumniGroupId" className="text-sm font-medium flex items-center gap-2">
-                        <GraduationCap className="h-4 w-4" />
-                        Alumni Group ID
-                      </Label>
-                      <Input
-                        id="alumniGroupId"
-                        type="number"
-                        placeholder="Enter alumni group ID"
-                        className="h-11"
-                        value={formData.alumniGroupId}
-                        onChange={(e) => handleInputChange("alumniGroupId", e.target.value)}
-                      />
-                      {errors.alumniGroupId && <p className="text-sm text-red-600">{errors.alumniGroupId}</p>}
-                    </div>
-                  </div>
+                        {visibleFields.alumniGroup && (
+                          <div className="space-y-2">
+                            <Label htmlFor="alumniGroupId" className="text-sm font-medium flex items-center gap-2">
+                              <GraduationCap className="h-4 w-4" />
+                              Alumni Group
+                            </Label>
+                            {userScope?.scope === 'superadmin' ? (
+                              <Select
+                                value={formData.alumniGroupId}
+                                onValueChange={(value) => handleInputChange("alumniGroupId", value)}
+                                disabled={!formData.regionId || loadingOrganizations.alumniGroups}
+                              >
+                                <SelectTrigger className="h-11">
+                                  <SelectValue placeholder={
+                                    loadingOrganizations.alumniGroups 
+                                      ? "Loading alumni groups..." 
+                                      : !formData.regionId 
+                                        ? "Select region first" 
+                                        : "Select alumni group"
+                                  } />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {alumniGroups.map((group) => (
+                                    <SelectItem key={group.id} value={group.id.toString()}>
+                                      {group.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <Input
+                                id="alumniGroupId"
+                                type="number"
+                                placeholder="Enter alumni group ID"
+                                className="h-11"
+                                value={formData.alumniGroupId}
+                                onChange={(e) => handleInputChange("alumniGroupId", e.target.value)}
+                              />
+                            )}
+                            {errors.alumniGroupId && <p className="text-sm text-red-600">{errors.alumniGroupId}</p>}
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Show message if no fields are visible */}
+                      {!visibleFields.region && !visibleFields.university && !visibleFields.smallGroup && !visibleFields.alumniGroup && (
+                        <div className="text-center py-4">
+                          <p className="text-sm text-muted-foreground">
+                            Organization fields are automatically set based on your current scope.
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
 
                 <div className="flex gap-3 pt-6 border-t">

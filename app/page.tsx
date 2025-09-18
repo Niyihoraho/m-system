@@ -263,36 +263,8 @@ export default function Home() {
 
           <div className="mt-6 text-center">
             <p className="text-sm text-muted-foreground">
-              {isLogin ? "Don't have an account? " : "Already have an account? "}
-              <button
-                type="button"
-                onClick={() => {
-                  setIsLogin(!isLogin);
-                  setError(null);
-                  setSuccess(null);
-                  setFormData({
-                    name: "",
-                    username: "",
-                    email: "",
-                    password: "",
-                    confirmPassword: "",
-                    contact: "",
-                  });
-                }}
-                className="text-primary hover:text-primary/80 font-medium"
-              >
-                {isLogin ? 'Sign up' : 'Sign in'}
-              </button>
+              gbur ministry
             </p>
-          </div>
-
-          <div className="mt-4 text-center">
-            <Link 
-              href="/dashboard" 
-              className="text-sm text-muted-foreground hover:text-primary"
-            >
-              ← Back to Dashboard
-            </Link>
           </div>
         </CardContent>
       </Card>

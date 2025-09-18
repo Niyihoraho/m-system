@@ -16,6 +16,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/ui copy/sheet"
 import { Edit, Calendar, MapPin, Building2, Users, GraduationCap, Activity } from "lucide-react"
+import { useUserScope } from "@/hooks/use-user-scope"
 
 interface Region {
   id: number;
@@ -67,6 +68,14 @@ export function EditEventModal({ event, onEventUpdated, isOpen, onClose }: EditE
   const [isLoading, setIsLoading] = React.useState(false)
   const [errors, setErrors] = React.useState<Record<string, string>>({})
   const [success, setSuccess] = React.useState(false)
+  
+  // Get user scope and visibility rules
+  const { userScope, loading: scopeLoading, getVisibleFields, getDefaultValues } = useUserScope()
+  const visibleFields = getVisibleFields()
+  
+  // Memoize default values to prevent infinite re-renders
+  const defaultValues = React.useMemo(() => getDefaultValues(), [userScope])
+  
   const [regions, setRegions] = React.useState<Region[]>([])
   const [universities, setUniversities] = React.useState<University[]>([])
   const [smallGroups, setSmallGroups] = React.useState<SmallGroup[]>([])
@@ -81,34 +90,50 @@ export function EditEventModal({ event, onEventUpdated, isOpen, onClose }: EditE
     isActive: true,
   })
 
-  // Fetch regions when modal opens
+  // Fetch regions when modal opens (only if region field is visible)
   React.useEffect(() => {
-    if (isOpen) {
+    if (isOpen && visibleFields.region) {
       fetchRegions()
     }
-  }, [isOpen])
+  }, [isOpen, visibleFields.region])
 
-  // Fetch universities when region changes
+  // Fetch universities when region changes (only if university field is visible)
   React.useEffect(() => {
-    if (formData.regionId) {
+    if (formData.regionId && visibleFields.university) {
       fetchUniversities(Number(formData.regionId))
-      fetchAlumniGroups(Number(formData.regionId))
     } else {
       setUniversities([])
-      setAlumniGroups([])
-      setFormData(prev => ({ ...prev, universityId: "", alumniGroupId: "" }))
+      setFormData(prev => ({ ...prev, universityId: "" }))
     }
-  }, [formData.regionId])
+  }, [formData.regionId, visibleFields.university])
 
-  // Fetch small groups when university changes
+  // Fetch alumni groups when region changes (only if alumni group field is visible)
   React.useEffect(() => {
-    if (formData.universityId) {
-      fetchSmallGroups(Number(formData.universityId))
+    if (formData.regionId && visibleFields.alumniGroup) {
+      fetchAlumniGroups(Number(formData.regionId))
     } else {
-      setSmallGroups([])
-      setFormData(prev => ({ ...prev, smallGroupId: "" }))
+      setAlumniGroups([])
+      setFormData(prev => ({ ...prev, alumniGroupId: "" }))
     }
-  }, [formData.universityId])
+  }, [formData.regionId, visibleFields.alumniGroup])
+
+  // Fetch small groups when university changes (only if small group field is visible)
+  React.useEffect(() => {
+    if (visibleFields.smallGroup) {
+      // For university-level users, use their university ID
+      // For region-level users, use the selected university ID
+      const universityId = userScope?.scope === 'university' 
+        ? userScope.universityId 
+        : formData.universityId;
+      
+      if (universityId) {
+        fetchSmallGroups(Number(universityId))
+      } else {
+        setSmallGroups([])
+        setFormData(prev => ({ ...prev, smallGroupId: "" }))
+      }
+    }
+  }, [formData.universityId, visibleFields.smallGroup, userScope])
 
   // Populate form data when event changes
   React.useEffect(() => {
@@ -196,7 +221,8 @@ export function EditEventModal({ event, onEventUpdated, isOpen, onClose }: EditE
       newErrors.type = "Event type is required"
     }
     
-    if (!formData.regionId) {
+    // Only validate region if the field is visible
+    if (visibleFields.region && !formData.regionId) {
       newErrors.regionId = "Region is required"
     }
     
@@ -226,7 +252,7 @@ export function EditEventModal({ event, onEventUpdated, isOpen, onClose }: EditE
         body: JSON.stringify({
           name: formData.name,
           type: formData.type,
-          regionId: Number(formData.regionId),
+          regionId: formData.regionId ? Number(formData.regionId) : null,
           universityId: formData.universityId ? Number(formData.universityId) : null,
           smallGroupId: formData.smallGroupId ? Number(formData.smallGroupId) : null,
           alumniGroupId: formData.alumniGroupId ? Number(formData.alumniGroupId) : null,
@@ -291,12 +317,36 @@ export function EditEventModal({ event, onEventUpdated, isOpen, onClose }: EditE
               </div>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-                {errors.general && (
-                  <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
-                    {errors.general}
-                  </div>
-                )}
+              {scopeLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-sm text-muted-foreground">Loading user scope...</div>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+                  {errors.general && (
+                    <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+                      {errors.general}
+                    </div>
+                  )}
+
+                  {/* Show scope information for non-superadmin users */}
+                  {userScope && userScope.scope !== 'superadmin' && (
+                    <div className="p-3 text-sm bg-blue-50 border border-blue-200 rounded-md">
+                      <div className="font-medium text-blue-800">Current Scope: {userScope.scope}</div>
+                      {userScope.region && (
+                        <div className="text-blue-700">Region: {userScope.region.name}</div>
+                      )}
+                      {userScope.university && (
+                        <div className="text-blue-700">University: {userScope.university.name}</div>
+                      )}
+                      {userScope.smallGroup && (
+                        <div className="text-blue-700">Small Group: {userScope.smallGroup.name}</div>
+                      )}
+                      {userScope.alumniGroup && (
+                        <div className="text-blue-700">Alumni Group: {userScope.alumniGroup.name}</div>
+                      )}
+                    </div>
+                  )}
 
                 {/* Event Information */}
                 <div className="space-y-4">
@@ -323,108 +373,130 @@ export function EditEventModal({ event, onEventUpdated, isOpen, onClose }: EditE
                       <Activity className="h-4 w-4" />
                       Event Type *
                     </Label>
-                    <Input
-                      id="type"
-                      placeholder="Enter event type (e.g., Conference, Workshop, Meeting)"
-                      className="h-11"
+                    <Select
                       value={formData.type}
-                      onChange={(e) => handleInputChange("type", e.target.value)}
-                      required
-                    />
+                      onValueChange={(value) => handleInputChange("type", value)}
+                    >
+                      <SelectTrigger className="h-11">
+                        <SelectValue placeholder="Select event type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="bible_study">Bible Study</SelectItem>
+                        <SelectItem value="discipleship">Discipleship</SelectItem>
+                        <SelectItem value="evangelism">Evangelism</SelectItem>
+                        <SelectItem value="cell_meeting">Cell Meeting</SelectItem>
+                        <SelectItem value="alumni_meeting">Alumni Meeting</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
                     {errors.type && <p className="text-sm text-red-600">{errors.type}</p>}
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="regionId" className="text-sm font-medium flex items-center gap-2">
-                      <MapPin className="h-4 w-4" />
-                      Region *
-                    </Label>
-                    <Select
-                      value={formData.regionId}
-                      onValueChange={(value) => handleInputChange("regionId", value)}
-                    >
-                      <SelectTrigger className="h-11">
-                        <SelectValue placeholder="Select a region" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {regions.map((region) => (
-                          <SelectItem key={region.id} value={region.id.toString()}>
-                            {region.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {errors.regionId && <p className="text-sm text-red-600">{errors.regionId}</p>}
-                  </div>
+                  {visibleFields.region && (
+                    <div className="space-y-2">
+                      <Label htmlFor="regionId" className="text-sm font-medium flex items-center gap-2">
+                        <MapPin className="h-4 w-4" />
+                        Region *
+                      </Label>
+                      <Select
+                        value={formData.regionId}
+                        onValueChange={(value) => handleInputChange("regionId", value)}
+                      >
+                        <SelectTrigger className="h-11">
+                          <SelectValue placeholder="Select a region" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {regions.map((region) => (
+                            <SelectItem key={region.id} value={region.id.toString()}>
+                              {region.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {errors.regionId && <p className="text-sm text-red-600">{errors.regionId}</p>}
+                    </div>
+                  )}
 
-                  <div className="space-y-2">
-                    <Label htmlFor="universityId" className="text-sm font-medium flex items-center gap-2">
-                      <Building2 className="h-4 w-4" />
-                      University (Optional)
-                    </Label>
-                    <Select
-                      value={formData.universityId}
-                      onValueChange={(value) => handleInputChange("universityId", value)}
-                      disabled={!formData.regionId}
-                    >
-                      <SelectTrigger className="h-11">
-                        <SelectValue placeholder={formData.regionId ? "Select a university (optional)" : "Select a region first"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {universities.map((university) => (
-                          <SelectItem key={university.id} value={university.id.toString()}>
-                            {university.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {visibleFields.university && (
+                    <div className="space-y-2">
+                      <Label htmlFor="universityId" className="text-sm font-medium flex items-center gap-2">
+                        <Building2 className="h-4 w-4" />
+                        University (Optional)
+                      </Label>
+                      <Select
+                        value={formData.universityId}
+                        onValueChange={(value) => handleInputChange("universityId", value)}
+                        disabled={!formData.regionId}
+                      >
+                        <SelectTrigger className="h-11">
+                          <SelectValue placeholder={formData.regionId ? "Select a university (optional)" : "Select a region first"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {universities.map((university) => (
+                            <SelectItem key={university.id} value={university.id.toString()}>
+                              {university.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
-                  <div className="space-y-2">
-                    <Label htmlFor="smallGroupId" className="text-sm font-medium flex items-center gap-2">
-                      <Users className="h-4 w-4" />
-                      Small Group (Optional)
-                    </Label>
-                    <Select
-                      value={formData.smallGroupId}
-                      onValueChange={(value) => handleInputChange("smallGroupId", value)}
-                      disabled={!formData.universityId}
-                    >
-                      <SelectTrigger className="h-11">
-                        <SelectValue placeholder={formData.universityId ? "Select a small group (optional)" : "Select a university first"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {smallGroups.map((smallGroup) => (
-                          <SelectItem key={smallGroup.id} value={smallGroup.id.toString()}>
-                            {smallGroup.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {visibleFields.smallGroup && (
+                    <div className="space-y-2">
+                      <Label htmlFor="smallGroupId" className="text-sm font-medium flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        Small Group (Optional)
+                      </Label>
+                      <Select
+                        value={formData.smallGroupId}
+                        onValueChange={(value) => handleInputChange("smallGroupId", value)}
+                        disabled={userScope?.scope !== 'university' && !formData.universityId}
+                      >
+                        <SelectTrigger className="h-11">
+                          <SelectValue placeholder={
+                            userScope?.scope === 'university' 
+                              ? "Select a small group (optional)" 
+                              : formData.universityId 
+                                ? "Select a small group (optional)" 
+                                : "Select a university first"
+                          } />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {smallGroups.map((smallGroup) => (
+                            <SelectItem key={smallGroup.id} value={smallGroup.id.toString()}>
+                              {smallGroup.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
-                  <div className="space-y-2">
-                    <Label htmlFor="alumniGroupId" className="text-sm font-medium flex items-center gap-2">
-                      <GraduationCap className="h-4 w-4" />
-                      Alumni Group (Optional)
-                    </Label>
-                    <Select
-                      value={formData.alumniGroupId}
-                      onValueChange={(value) => handleInputChange("alumniGroupId", value)}
-                      disabled={!formData.regionId}
-                    >
-                      <SelectTrigger className="h-11">
-                        <SelectValue placeholder={formData.regionId ? "Select an alumni group (optional)" : "Select a region first"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {alumniGroups.map((alumniGroup) => (
-                          <SelectItem key={alumniGroup.id} value={alumniGroup.id.toString()}>
-                            {alumniGroup.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {visibleFields.alumniGroup && (
+                    <div className="space-y-2">
+                      <Label htmlFor="alumniGroupId" className="text-sm font-medium flex items-center gap-2">
+                        <GraduationCap className="h-4 w-4" />
+                        Alumni Group (Optional)
+                      </Label>
+                      <Select
+                        value={formData.alumniGroupId}
+                        onValueChange={(value) => handleInputChange("alumniGroupId", value)}
+                        disabled={!formData.regionId}
+                      >
+                        <SelectTrigger className="h-11">
+                          <SelectValue placeholder={formData.regionId ? "Select an alumni group (optional)" : "Select a region first"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {alumniGroups.map((alumniGroup) => (
+                            <SelectItem key={alumniGroup.id} value={alumniGroup.id.toString()}>
+                              {alumniGroup.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
 
                   <div className="flex items-center space-x-2">
                     <Checkbox
@@ -466,6 +538,7 @@ export function EditEventModal({ event, onEventUpdated, isOpen, onClose }: EditE
                   </Button>
                 </div>
               </form>
+              )}
             </CardContent>
           </Card>
         </div>

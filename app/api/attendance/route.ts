@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getUserScope, getTableRLSConditions } from "@/lib/rls";
 
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
+        
+        // Get user scope for RLS
+        const userScope = await getUserScope();
+        if (!userScope) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+        
         const where: any = {};
         
         // Event and status filters
@@ -29,24 +37,30 @@ export async function GET(request: NextRequest) {
             }
         }
         
-        // Member organizational filters
-        const hasExplicitFilters = searchParams.has("regionId") || searchParams.has("universityId") || 
-            searchParams.has("smallGroupId") || searchParams.has("alumniGroupId");
+        // Apply RLS conditions for member filters
+        const memberRLSConditions = getTableRLSConditions(userScope, 'member');
+        where.member = { ...memberRLSConditions };
         
-        if (hasExplicitFilters) {
-            where.member = {};
+        // Override with explicit filters for super admin
+        if (userScope.scope === 'superadmin') {
+            const hasExplicitFilters = searchParams.has("regionId") || searchParams.has("universityId") || 
+                searchParams.has("smallGroupId") || searchParams.has("alumniGroupId");
             
-            if (searchParams.has("regionId")) {
-                where.member.regionId = Number(searchParams.get("regionId"));
-            }
-            if (searchParams.has("universityId")) {
-                where.member.universityId = Number(searchParams.get("universityId"));
-            }
-            if (searchParams.has("smallGroupId")) {
-                where.member.smallGroupId = Number(searchParams.get("smallGroupId"));
-            }
-            if (searchParams.has("alumniGroupId")) {
-                where.member.alumniGroupId = Number(searchParams.get("alumniGroupId"));
+            if (hasExplicitFilters) {
+                where.member = {};
+                
+                if (searchParams.has("regionId")) {
+                    where.member.regionId = Number(searchParams.get("regionId"));
+                }
+                if (searchParams.has("universityId")) {
+                    where.member.universityId = Number(searchParams.get("universityId"));
+                }
+                if (searchParams.has("smallGroupId")) {
+                    where.member.smallGroupId = Number(searchParams.get("smallGroupId"));
+                }
+                if (searchParams.has("alumniGroupId")) {
+                    where.member.alumniGroupId = Number(searchParams.get("alumniGroupId"));
+                }
             }
         }
         
@@ -78,6 +92,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
+        // Get user scope for RLS
+        const userScope = await getUserScope();
+        if (!userScope) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+        
         const body = await request.json();
         
         if (!Array.isArray(body)) {
@@ -104,7 +124,7 @@ export async function POST(request: NextRequest) {
             }
 
             try {
-                // Check if member exists
+                // Check if member exists and user has access
                 const member = await prisma.member.findUnique({
                     where: { id: Number(memberId) }
                 });
@@ -114,7 +134,19 @@ export async function POST(request: NextRequest) {
                     continue;
                 }
 
-                // Check if event exists (if provided)
+                // Apply RLS check for member access
+                const memberRLSConditions = getTableRLSConditions(userScope, 'member');
+                const hasMemberAccess = Object.keys(memberRLSConditions).every(key => {
+                    if (memberRLSConditions[key] === null || memberRLSConditions[key] === undefined) return true;
+                    return member[key] === memberRLSConditions[key];
+                });
+
+                if (!hasMemberAccess) {
+                    results.push({ error: "Access denied to member", data: record });
+                    continue;
+                }
+
+                // Check if event exists and user has access (if provided)
                 if (permanentEventId) {
                     const event = await prisma.permanentministryevent.findUnique({
                         where: { id: Number(permanentEventId) }
@@ -122,6 +154,18 @@ export async function POST(request: NextRequest) {
 
                     if (!event) {
                         results.push({ error: "Event not found", data: record });
+                        continue;
+                    }
+
+                    // Apply RLS check for event access
+                    const eventRLSConditions = getTableRLSConditions(userScope, 'permanentministryevent');
+                    const hasEventAccess = Object.keys(eventRLSConditions).every(key => {
+                        if (eventRLSConditions[key] === null || eventRLSConditions[key] === undefined) return true;
+                        return event[key] === eventRLSConditions[key];
+                    });
+
+                    if (!hasEventAccess) {
+                        results.push({ error: "Access denied to event", data: record });
                         continue;
                     }
                 }
