@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
-import { Search, RefreshCw, Plus, Edit, Calendar, Users, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
+import { Search, RefreshCw, Plus, Edit, Calendar, Users, CheckCircle, XCircle, Clock, AlertCircle, Download } from 'lucide-react';
+import jsPDF from 'jspdf';
 import { AppSidebar } from "@/components/app-sidebar";
 import { SuperAdminScopeSelector } from "@/components/super-admin-scope-selector";
 import { useUserScope } from "@/hooks/use-user-scope";
@@ -25,6 +26,12 @@ import { Input } from "@/components/ui/ui copy/input";
 import { Label } from "@/components/ui/ui copy/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/ui copy/select";
 import { Button } from "@/components/ui/ui copy/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface AttendanceRecord {
   id: number;
@@ -91,6 +98,10 @@ export default function AttendancePage() {
   const [editStatus, setEditStatus] = useState<string>("");
   const [editMessage, setEditMessage] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
+
+  // Export state
+  const [isExporting, setIsExporting] = useState(false);
+  const [showExportOptions, setShowExportOptions] = useState(false);
 
   // Filter dropdowns state (for view records only)
   const [regions, setRegions] = useState<{id: number, name: string}[]>([]);
@@ -462,6 +473,162 @@ export default function AttendancePage() {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  // Export functions
+  const fetchAttendanceExportDetails = async (exportStatus: string = 'all') => {
+    try {
+      const params = new URLSearchParams();
+      
+      // Add current filters
+      if (eventFilter) params.append("eventId", eventFilter);
+      if (dateFrom) params.append("dateFrom", dateFrom);
+      if (dateTo) params.append("dateTo", dateTo);
+      
+      // Add scope-based filters
+      if (regionId) params.append("regionId", regionId);
+      if (universityId) params.append("universityId", universityId);
+      if (smallGroupId) params.append("smallGroupId", smallGroupId);
+      if (alumniGroupId) params.append("alumniGroupId", alumniGroupId);
+      
+      // Add filter dropdown parameters
+      if (selectedRegionFilter) params.append("regionId", selectedRegionFilter);
+      if (selectedUniversityFilter) params.append("universityId", selectedUniversityFilter);
+      if (selectedSmallGroupFilter) params.append("smallGroupId", selectedSmallGroupFilter);
+      if (selectedAlumniGroupFilter) params.append("alumniGroupId", selectedAlumniGroupFilter);
+      
+      // Add export status filter
+      if (exportStatus !== 'all') {
+        params.append("status", exportStatus);
+      }
+      
+      const response = await axios.get(`/api/attendance/export-details?${params.toString()}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching attendance export details:', error);
+      throw error;
+    }
+  };
+
+  const exportToPDF = async (exportStatus: string = 'all') => {
+    setIsExporting(true);
+    try {
+      const exportData = await fetchAttendanceExportDetails(exportStatus);
+      const { attendanceDetails, totalCount, appliedFilters } = exportData;
+
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      
+      // Add header
+      pdf.setFontSize(20);
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('Ministry Management System', pageWidth / 2, 20, { align: 'center' });
+      
+      pdf.setFontSize(16);
+      pdf.setFont('helvetica', 'normal');
+      pdf.text('Attendance Records Report', pageWidth / 2, 30, { align: 'center' });
+      
+      // Add report metadata
+      pdf.setFontSize(10);
+      pdf.text(`Generated on: ${new Date().toLocaleDateString()}`, 20, 45);
+      pdf.text(`Total Records: ${totalCount}`, 20, 50);
+      
+      if (exportStatus !== 'all') {
+        pdf.text(`Status Filter: ${exportStatus.charAt(0).toUpperCase() + exportStatus.slice(1)}`, 20, 55);
+      }
+      
+      if (appliedFilters.dateFrom || appliedFilters.dateTo) {
+        const dateRange = `${appliedFilters.dateFrom || 'Start'} to ${appliedFilters.dateTo || 'End'}`;
+        pdf.text(`Date Range: ${dateRange}`, 20, exportStatus !== 'all' ? 60 : 55);
+      }
+
+      // Add summary statistics
+      if (attendanceDetails.length > 0) {
+        const stats = attendanceDetails.reduce((acc: any, record: any) => {
+          acc.total++;
+          if (record.attendanceStatus === 'present') acc.present++;
+          else if (record.attendanceStatus === 'absent') acc.absent++;
+          else if (record.attendanceStatus === 'excused') acc.excused++;
+          return acc;
+        }, { total: 0, present: 0, absent: 0, excused: 0 });
+
+        const yPos = appliedFilters.dateFrom || appliedFilters.dateTo ? 70 : 65;
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Summary Statistics', 20, yPos);
+        
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`Total Records: ${stats.total}`, 20, yPos + 8);
+        pdf.text(`Present: ${stats.present}`, 20, yPos + 13);
+        pdf.text(`Absent: ${stats.absent}`, 20, yPos + 18);
+        pdf.text(`Excused: ${stats.excused}`, 20, yPos + 23);
+        
+        if (stats.total > 0) {
+          const attendanceRate = Math.round((stats.present / stats.total) * 100);
+          pdf.text(`Attendance Rate: ${attendanceRate}%`, 20, yPos + 28);
+        }
+      }
+
+      // Add attendance records table
+      if (attendanceDetails.length > 0) {
+        const tableStartY = appliedFilters.dateFrom || appliedFilters.dateTo ? 110 : 100;
+        let currentY = tableStartY;
+        
+        // Table headers
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Member Name', 20, currentY);
+        pdf.text('Event', 60, currentY);
+        pdf.text('Status', 100, currentY);
+        pdf.text('Date', 130, currentY);
+        pdf.text('Region', 160, currentY);
+        
+        // Draw header line
+        pdf.line(20, currentY + 2, 190, currentY + 2);
+        currentY += 8;
+        
+        // Table data
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(8);
+        
+        attendanceDetails.forEach((record: any, index: number) => {
+          // Check if we need a new page
+          if (currentY > pageHeight - 20) {
+            pdf.addPage();
+            currentY = 20;
+          }
+          
+          const memberName = record.memberName.length > 25 ? record.memberName.substring(0, 22) + '...' : record.memberName;
+          const eventName = record.eventName.length > 20 ? record.eventName.substring(0, 17) + '...' : record.eventName;
+          const regionName = record.region.length > 15 ? record.region.substring(0, 12) + '...' : record.region;
+          
+          pdf.text(memberName, 20, currentY);
+          pdf.text(eventName, 60, currentY);
+          pdf.text(record.attendanceStatus.charAt(0).toUpperCase() + record.attendanceStatus.slice(1), 100, currentY);
+          pdf.text(new Date(record.recordedAt).toLocaleDateString(), 130, currentY);
+          pdf.text(regionName, 160, currentY);
+          
+          currentY += 5;
+        });
+      } else {
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text('No attendance records found for the selected criteria.', 20, 80);
+      }
+
+      // Save the PDF
+      const fileName = `attendance-records-${exportStatus}-${new Date().toISOString().split('T')[0]}.pdf`;
+      pdf.save(fileName);
+      
+    } catch (error) {
+      console.error('Error exporting attendance records:', error);
+      alert('Failed to export attendance records. Please try again.');
+    } finally {
+      setIsExporting(false);
+      setShowExportOptions(false);
+    }
   };
 
   return (
@@ -841,7 +1008,7 @@ export default function AttendancePage() {
                           />
                         </div>
                       </div>
-                      <div className="flex items-end">
+                      <div className="flex items-end gap-2">
                         <Button
                           type="button"
                           variant="outline"
@@ -860,6 +1027,37 @@ export default function AttendancePage() {
                         >
                           Clear Filters
                         </Button>
+                        
+                        {/* Export Options Dropdown */}
+                        <DropdownMenu open={showExportOptions} onOpenChange={setShowExportOptions}>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className="flex items-center gap-2 h-11"
+                              disabled={isExporting}
+                            >
+                              <Download className="w-4 h-4" />
+                              {isExporting ? 'Exporting...' : 'Export Document'}
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem onClick={() => exportToPDF('all')}>
+                              Export All Records
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => exportToPDF('present')}>
+                              Export Present Only
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => exportToPDF('absent')}>
+                              Export Absent Only
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => exportToPDF('excused')}>
+                              Export Excused Only
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                   </CardContent>
