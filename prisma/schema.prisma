@@ -258,7 +258,6 @@ model member {
   secondname           String?
   gender               String?
   birthdate            DateTime?
-  placeOfBirthProvince String?
   placeOfBirthDistrict String?
   placeOfBirthSector   String?
   placeOfBirthCell     String?
@@ -278,6 +277,7 @@ model member {
   maritalStatus        String?
   createdAt            DateTime          @default(now())
   updatedAt            DateTime
+  placeOfBirthProvince String?
   attendance           attendance[]
   contribution         contribution[]
   contributor          contributor?
