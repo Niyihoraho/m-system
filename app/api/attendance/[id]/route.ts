@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "../../../../prisma/client";
+import { prisma } from "@/lib/prisma";
 import { z } from "zod";
-import { auth } from "../../../authentication/auth";
-import { getUserScopeFilter } from "../../../utils/auth";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { getUserScope } from "@/lib/rls";
 
 // Helper function to check if user has access to an attendance record
 async function checkAttendanceAccess(userId: string, attendanceId: number): Promise<{ hasAccess: boolean; attendanceRecord?: any; error?: string }> {
     try {
-        const scopeFilter = await getUserScopeFilter(userId);
+        const userScope = await getUserScope();
         
-        if (!scopeFilter.hasAccess) {
+        if (!userScope) {
             return { hasAccess: false, error: "Access denied" };
         }
 
@@ -27,16 +28,16 @@ async function checkAttendanceAccess(userId: string, attendanceId: number): Prom
 
         // Check if user has access to this attendance record
         let hasAccess = false;
-        if (['superadmin', 'national'].includes(scopeFilter.scope)) {
+        if (['superadmin', 'national'].includes(userScope.scope)) {
             hasAccess = true;
-        } else if (scopeFilter.scope === 'region' && scopeFilter.regionId) {
-            hasAccess = attendanceRecord.member.regionId === scopeFilter.regionId;
-        } else if (scopeFilter.scope === 'university' && scopeFilter.universityId) {
-            hasAccess = attendanceRecord.member.universityId === scopeFilter.universityId;
-        } else if (scopeFilter.scope === 'smallgroup' && scopeFilter.smallGroupId) {
-            hasAccess = attendanceRecord.member.smallGroupId === scopeFilter.smallGroupId;
-        } else if (scopeFilter.scope === 'alumnismallgroup' && scopeFilter.alumniGroupId) {
-            hasAccess = attendanceRecord.member.alumniGroupId === scopeFilter.alumniGroupId;
+        } else if (userScope.scope === 'region' && userScope.regionId) {
+            hasAccess = attendanceRecord.member.regionId === userScope.regionId;
+        } else if (userScope.scope === 'university' && userScope.universityId) {
+            hasAccess = attendanceRecord.member.universityId === userScope.universityId;
+        } else if (userScope.scope === 'smallgroup' && userScope.smallGroupId) {
+            hasAccess = attendanceRecord.member.smallGroupId === userScope.smallGroupId;
+        } else if (userScope.scope === 'alumnismallgroup' && userScope.alumniGroupId) {
+            hasAccess = attendanceRecord.member.alumniGroupId === userScope.alumniGroupId;
         }
 
         return { hasAccess, attendanceRecord };
@@ -63,7 +64,7 @@ export async function GET(
     }
 
     // Check access permission for this attendance record
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
@@ -113,7 +114,7 @@ export async function PATCH(
     }
 
     // Check access permission for this attendance record
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
@@ -171,7 +172,7 @@ export async function DELETE(
     }
 
     // Check access permission for this attendance record
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }

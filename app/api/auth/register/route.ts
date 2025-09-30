@@ -47,8 +47,6 @@ export async function POST(request: NextRequest) {
                 username: data.username,
                 email: data.email,
                 password: hashedPassword,
-                contact: data.contact || null,
-                status: data.status || 'active',
                 createdAt: new Date(),
                 updatedAt: new Date(),
             },

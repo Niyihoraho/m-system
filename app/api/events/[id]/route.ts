@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "../../../../prisma/client";
+import { prisma } from "@/lib/prisma";
 import { createPermanentMinistryEventSchema } from "../../validation/permanentMinistryEvent";
-import { auth } from "../../../authentication/auth";
-import { getUserScopeFilter } from "../../../utils/auth";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { getUserScope } from "@/lib/rls";
 
 // GET single event
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
@@ -27,26 +28,26 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         }
 
         // Apply RLS - check if user can access this event
-        const session = await auth();
+        const session = await getServerSession(authOptions);
         if (session?.user?.id) {
             try {
-                const scopeFilter = await getUserScopeFilter(session.user.id);
+                const userScope = await getUserScope();
                 
-                if (!scopeFilter.hasAccess) {
+                if (!userScope) {
                     return NextResponse.json({ error: "Access denied" }, { status: 403 });
                 }
 
                 // Check if user can access this specific event based on their scope
-                if (scopeFilter.scope === 'region' && scopeFilter.regionId && event.regionId !== scopeFilter.regionId) {
+                if (userScope.scope === 'region' && userScope.regionId && event.regionId !== userScope.regionId) {
                     return NextResponse.json({ error: "Access denied - event not in your region" }, { status: 403 });
                 }
-                if (scopeFilter.scope === 'university' && scopeFilter.universityId && event.universityId !== scopeFilter.universityId) {
+                if (userScope.scope === 'university' && userScope.universityId && event.universityId !== userScope.universityId) {
                     return NextResponse.json({ error: "Access denied - event not in your university" }, { status: 403 });
                 }
-                if (scopeFilter.scope === 'smallgroup' && scopeFilter.smallGroupId && event.smallGroupId !== scopeFilter.smallGroupId) {
+                if (userScope.scope === 'smallgroup' && userScope.smallGroupId && event.smallGroupId !== userScope.smallGroupId) {
                     return NextResponse.json({ error: "Access denied - event not in your small group" }, { status: 403 });
                 }
-                if (scopeFilter.scope === 'alumnismallgroup' && scopeFilter.alumniGroupId && event.alumniGroupId !== scopeFilter.alumniGroupId) {
+                if (userScope.scope === 'alumnismallgroup' && userScope.alumniGroupId && event.alumniGroupId !== userScope.alumniGroupId) {
                     return NextResponse.json({ error: "Access denied - event not in your alumni group" }, { status: 403 });
                 }
             } catch (error) {
@@ -99,28 +100,28 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         }
 
         // RLS: ensure user can update this event
-        const session = await auth();
+        const session = await getServerSession(authOptions);
         if (!session?.user?.id) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         try {
-            const scope = await getUserScopeFilter(session.user.id);
-            if (!scope.hasAccess) {
+            const userScope = await getUserScope();
+            if (!userScope) {
                 return NextResponse.json({ error: "Access denied" }, { status: 403 });
             }
 
             // Check if user can update this specific event
-            if (scope.scope === 'region' && scope.regionId && existingEvent.regionId !== scope.regionId) {
+            if (userScope.scope === 'region' && userScope.regionId && existingEvent.regionId !== userScope.regionId) {
                 return NextResponse.json({ error: "Access denied - cannot update event outside your region" }, { status: 403 });
             }
-            if (scope.scope === 'university' && scope.universityId && existingEvent.universityId !== scope.universityId) {
+            if (userScope.scope === 'university' && userScope.universityId && existingEvent.universityId !== userScope.universityId) {
                 return NextResponse.json({ error: "Access denied - cannot update event outside your university" }, { status: 403 });
             }
-            if (scope.scope === 'smallgroup' && scope.smallGroupId && existingEvent.smallGroupId !== scope.smallGroupId) {
+            if (userScope.scope === 'smallgroup' && userScope.smallGroupId && existingEvent.smallGroupId !== userScope.smallGroupId) {
                 return NextResponse.json({ error: "Access denied - cannot update event outside your small group" }, { status: 403 });
             }
-            if (scope.scope === 'alumnismallgroup' && scope.alumniGroupId && existingEvent.alumniGroupId !== scope.alumniGroupId) {
+            if (userScope.scope === 'alumnismallgroup' && userScope.alumniGroupId && existingEvent.alumniGroupId !== userScope.alumniGroupId) {
                 return NextResponse.json({ error: "Access denied - cannot update event outside your alumni group" }, { status: 403 });
             }
 
@@ -130,14 +131,14 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
             const targetSmallGroupId = data.smallGroupId ?? null;
             const targetAlumniGroupId = data.alumniGroupId ?? null;
 
-            if (scope.scope === 'region' && scope.regionId) {
-                if (targetRegionId !== null && targetRegionId !== scope.regionId) {
+            if (userScope.scope === 'region' && userScope.regionId) {
+                if (targetRegionId !== null && targetRegionId !== userScope.regionId) {
                     return NextResponse.json({ error: "Access denied - region mismatch" }, { status: 403 });
                 }
             }
 
-            if (scope.scope === 'university' && scope.universityId) {
-                if (targetUniversityId !== null && targetUniversityId !== scope.universityId) {
+            if (userScope.scope === 'university' && userScope.universityId) {
+                if (targetUniversityId !== null && targetUniversityId !== userScope.universityId) {
                     return NextResponse.json({ error: "Access denied - university mismatch" }, { status: 403 });
                 }
                 if (targetAlumniGroupId) {
@@ -145,8 +146,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
                 }
             }
 
-            if (scope.scope === 'smallgroup' && scope.smallGroupId) {
-                if (targetSmallGroupId !== null && targetSmallGroupId !== scope.smallGroupId) {
+            if (userScope.scope === 'smallgroup' && userScope.smallGroupId) {
+                if (targetSmallGroupId !== null && targetSmallGroupId !== userScope.smallGroupId) {
                     return NextResponse.json({ error: "Access denied - small group mismatch" }, { status: 403 });
                 }
                 if (targetAlumniGroupId) {
@@ -154,8 +155,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
                 }
             }
 
-            if (scope.scope === 'alumnismallgroup' && scope.alumniGroupId) {
-                if (targetAlumniGroupId !== null && targetAlumniGroupId !== scope.alumniGroupId) {
+            if (userScope.scope === 'alumnismallgroup' && userScope.alumniGroupId) {
+                if (targetAlumniGroupId !== null && targetAlumniGroupId !== userScope.alumniGroupId) {
                     return NextResponse.json({ error: "Access denied - alumni group mismatch" }, { status: 403 });
                 }
                 if (targetUniversityId || targetSmallGroupId) {
@@ -233,28 +234,28 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
         }
 
         // RLS: ensure user can delete this event
-        const session = await auth();
+        const session = await getServerSession(authOptions);
         if (!session?.user?.id) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         try {
-            const scope = await getUserScopeFilter(session.user.id);
-            if (!scope.hasAccess) {
+            const userScope = await getUserScope();
+            if (!userScope) {
                 return NextResponse.json({ error: "Access denied" }, { status: 403 });
             }
 
             // Check if user can delete this specific event
-            if (scope.scope === 'region' && scope.regionId && existingEvent.regionId !== scope.regionId) {
+            if (userScope.scope === 'region' && userScope.regionId && existingEvent.regionId !== userScope.regionId) {
                 return NextResponse.json({ error: "Access denied - cannot delete event outside your region" }, { status: 403 });
             }
-            if (scope.scope === 'university' && scope.universityId && existingEvent.universityId !== scope.universityId) {
+            if (userScope.scope === 'university' && userScope.universityId && existingEvent.universityId !== userScope.universityId) {
                 return NextResponse.json({ error: "Access denied - cannot delete event outside your university" }, { status: 403 });
             }
-            if (scope.scope === 'smallgroup' && scope.smallGroupId && existingEvent.smallGroupId !== scope.smallGroupId) {
+            if (userScope.scope === 'smallgroup' && userScope.smallGroupId && existingEvent.smallGroupId !== userScope.smallGroupId) {
                 return NextResponse.json({ error: "Access denied - cannot delete event outside your small group" }, { status: 403 });
             }
-            if (scope.scope === 'alumnismallgroup' && scope.alumniGroupId && existingEvent.alumniGroupId !== scope.alumniGroupId) {
+            if (userScope.scope === 'alumnismallgroup' && userScope.alumniGroupId && existingEvent.alumniGroupId !== userScope.alumniGroupId) {
                 return NextResponse.json({ error: "Access denied - cannot delete event outside your alumni group" }, { status: 403 });
             }
         } catch (e) {
