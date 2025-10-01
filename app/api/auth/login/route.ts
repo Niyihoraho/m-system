@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
         );
 
         // Remove password from response
-        const { password: _, ...userWithoutPassword } = user;
+        const { password: _password, ...userWithoutPassword } = user;
 
         return NextResponse.json({
             user: userWithoutPassword,
@@ -89,10 +89,11 @@ export async function POST(request: NextRequest) {
             message: "Login successful"
         }, { status: 200 });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Error during login:", error);
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
         return NextResponse.json(
-            { error: "Login failed", details: error.message },
+            { error: "Login failed", details: errorMessage },
             { status: 500 }
         );
     }

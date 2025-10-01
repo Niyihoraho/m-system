@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
         
-        const where: any = {};
+        const where: Record<string, unknown> = {};
         
         // Event and status filters
         if (searchParams.has("eventId")) {
@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
                     }
                 }
 
-                const attendanceData: any = {
+                const attendanceData: Record<string, unknown> = {
                     memberId: Number(memberId),
                     status: status,
                     notes: notes || null,
@@ -196,10 +196,10 @@ export async function POST(request: NextRequest) {
                 });
             
                 results.push({ success: true, data: created });
-            } catch (error: any) {
+            } catch (error: unknown) {
                 let errorMessage = "Could not create attendance record.";
-                if (error.code === 'P2002') {
-                    const target = (error.meta?.target as string[]) || [];
+                if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
+                    const target = (error.meta && typeof error.meta === 'object' && 'target' in error.meta ? error.meta.target as string[] : []) || [];
                     if (target.includes('permanentEventId')) {
                          errorMessage = "Attendance already recorded for this member and event.";
                     } else if (target.includes('trainingId')) {
@@ -207,7 +207,7 @@ export async function POST(request: NextRequest) {
                     } else {
                          errorMessage = "This attendance record already exists.";
                     }
-                } else if (error.code === 'P2003') {
+                } else if (error && typeof error === 'object' && 'code' in error && error.code === 'P2003') {
                     errorMessage = "The specified member, event, or training does not exist.";
                 }
                 results.push({ error: errorMessage, data: record });

@@ -34,7 +34,7 @@ export function AddMemberModal({ children, onMemberAdded }: AddMemberModalProps)
   const visibleFields = getVisibleFields()
   
   // Memoize default values to prevent infinite re-renders
-  const defaultValues = React.useMemo(() => getDefaultValues(), [userScope])
+  const defaultValues = React.useMemo(() => getDefaultValues(), [getDefaultValues])
   
   const [formData, setFormData] = React.useState({
     firstname: "",
@@ -368,10 +368,10 @@ export function AddMemberModal({ children, onMemberAdded }: AddMemberModalProps)
       createMemberSchema.parse(formData)
       setErrors({})
       return true
-    } catch (error: any) {
+    } catch (error: unknown) {
       const newErrors: Record<string, string> = {}
-      if (error.errors) {
-        error.errors.forEach((err: any) => {
+      if (error && typeof error === 'object' && 'errors' in error && Array.isArray(error.errors)) {
+        error.errors.forEach((err: Record<string, unknown>) => {
           newErrors[err.path[0]] = err.message
         })
       }
@@ -478,7 +478,7 @@ export function AddMemberModal({ children, onMemberAdded }: AddMemberModalProps)
         // Handle API errors
         console.error('API Error:', data)
         if (data.details) {
-          setErrors({ general: Array.isArray(data.details) ? data.details.map((d: any) => d.message).join(', ') : data.details })
+          setErrors({ general: Array.isArray(data.details) ? data.details.map((d: Record<string, unknown>) => d.message).join(', ') : data.details })
         } else {
           setErrors({ general: data.error || "Failed to create member" })
         }

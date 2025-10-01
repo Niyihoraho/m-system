@@ -24,7 +24,7 @@ import { Label } from "@/components/ui/ui copy/label";
 
 interface ImportResult {
   success: number;
-  errors: Array<{ row: number; error: string; data?: any }>;
+  errors: Array<{ row: number; error: string; data?: unknown }>;
 }
 
 export default function MemberImportPage() {
@@ -49,21 +49,21 @@ export default function MemberImportPage() {
           const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
             header: 1,
             defval: "" 
-          }) as any[][];
+          }) as unknown[][];
           
           if (jsonData.length < 2) {
             throw new Error('Excel file must contain at least a header row and one data row');
           }
           
-          const headers = jsonData[0].map((h: any) => String(h).toLowerCase().trim());
-          const members: any[] = [];
+          const headers = jsonData[0].map((h: unknown) => String(h).toLowerCase().trim());
+          const members: Record<string, unknown>[] = [];
 
           // Process each data row
           for (let i = 1; i < jsonData.length; i++) {
             const row = jsonData[i];
             if (!row || row.every(cell => !cell)) continue; // Skip empty rows
             
-            const memberData: any = {};
+            const memberData: Record<string, unknown> = {};
             
             // Map Excel columns to member fields
             headers.forEach((header, index) => {
@@ -180,8 +180,8 @@ export default function MemberImportPage() {
           }
           
           // Parse CSV manually for better control
-          const headers = lines[0].split(',').map((h: any) => String(h).toLowerCase().trim().replace(/"/g, ''));
-          const members: any[] = [];
+          const headers = lines[0].split(',').map((h: unknown) => String(h).toLowerCase().trim().replace(/"/g, ''));
+          const members: Record<string, unknown>[] = [];
 
           // Process each data row
           for (let i = 1; i < lines.length; i++) {
@@ -193,7 +193,7 @@ export default function MemberImportPage() {
             
             if (row.length === 0 || row.every(cell => !cell)) continue; // Skip empty rows
             
-            const memberData: any = {};
+            const memberData: Record<string, unknown> = {};
             
             // Map CSV columns to member fields
             headers.forEach((header, index) => {
@@ -563,17 +563,17 @@ export default function MemberImportPage() {
                     <div className="space-y-2">
                       <h4 className="font-medium text-sm">Field values:</h4>
                       <div className="text-sm text-muted-foreground space-y-1">
-                        <p>• gender: "male" or "female"</p>
-                        <p>• type: "student" or "alumni"</p>
-                        <p>• status: "active" or "inactive"</p>
-                        <p>• maritalStatus: "single" or "married"</p>
+                        <p>• gender: &quot;male&quot; or &quot;female&quot;</p>
+                        <p>• type: &quot;student&quot; or &quot;alumni&quot;</p>
+                        <p>• status: &quot;active&quot; or &quot;inactive&quot;</p>
+                        <p>• maritalStatus: &quot;single&quot; or &quot;married&quot;</p>
                         <p>• dates: YYYY-MM-DD format (e.g., 1990-01-15)</p>
                       </div>
                     </div>
                     
                     <div className="p-3 bg-primary/10 rounded-lg border border-primary/20">
                       <p className="text-primary font-medium text-sm">Note: Column names are case-insensitive</p>
-                      <p className="text-primary/80 text-xs mt-1">Use the "Download Template" button above to get a sample CSV file with the correct format</p>
+                      <p className="text-primary/80 text-xs mt-1">Use the &quot;Download Template&quot; button above to get a sample CSV file with the correct format</p>
                     </div>
                   </CardContent>
                 </Card>

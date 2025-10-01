@@ -21,13 +21,13 @@ export async function GET(request: NextRequest) {
         const dateTo = searchParams.get("dateTo");
         
         // Engagement type filters
-        const engagementType = searchParams.get("engagementType");
+        const _engagementType = searchParams.get("engagementType");
         const selectedEvent = searchParams.get("selectedEvent");
         const selectedDesignation = searchParams.get("selectedDesignation");
 
         // Build the filter object with RLS conditions
         const rlsConditions = generateRLSConditions(userScope);
-        let where: any = { ...rlsConditions };
+        const where: Record<string, unknown> = { ...rlsConditions };
 
         // Apply explicit filters if they exist (but they must be within user's scope)
         if (regionId && regionId !== 'all') {
@@ -148,9 +148,9 @@ export async function GET(request: NextRequest) {
 }
 
 // Helper function to get event attendance data
-async function getEventAttendanceData(where: any, selectedEvent?: string | null) {
+async function getEventAttendanceData(where: Record<string, unknown>, selectedEvent?: string | null) {
     try {
-        let eventWhere = { ...where };
+        const eventWhere = { ...where };
         
         // Filter by specific event if selected
         if (selectedEvent && selectedEvent !== 'all') {
@@ -228,7 +228,7 @@ async function getEventAttendanceData(where: any, selectedEvent?: string | null)
 }
 
 // Helper function to get designation participation data
-async function getDesignationData(where: any, selectedDesignation?: string | null) {
+async function getDesignationData(where: Record<string, unknown>, selectedDesignation?: string | null) {
     try {
         // Get contributions grouped by designation
         const contributions = await prisma.contribution.findMany({
@@ -274,10 +274,10 @@ async function getDesignationData(where: any, selectedDesignation?: string | nul
 }
 
 // Helper function to get monthly engagement trends
-async function getMonthlyEngagementTrends(where: any, dateFrom?: string | null, dateTo?: string | null) {
+async function getMonthlyEngagementTrends(where: Record<string, unknown>, _dateFrom?: string | null, _dateTo?: string | null) {
     try {
         const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        const currentMonth = new Date().getMonth();
+        const _currentMonth = new Date().getMonth();
         const trends = [];
         
         for (let i = 11; i >= 0; i--) {
@@ -347,9 +347,9 @@ async function getMonthlyEngagementTrends(where: any, dateFrom?: string | null, 
 }
 
 // Helper function to get regional engagement data with hierarchical comparisons
-async function getRegionalEngagementData(where: any, regionId?: string | null, universityId?: string | null) {
+async function getRegionalEngagementData(where: Record<string, unknown>, regionId?: string | null, universityId?: string | null) {
     try {
-        let comparisonData = [];
+        const comparisonData = [];
 
         // If a specific region is selected, show university comparison within that region
         if (regionId && regionId !== 'all') {
@@ -512,7 +512,7 @@ async function getRegionalEngagementData(where: any, regionId?: string | null, u
 }
 
 // Helper function to get engagement type distribution
-async function getEngagementTypeDistribution(where: any) {
+async function getEngagementTypeDistribution(where: Record<string, unknown>) {
     try {
         const eventAttendance = await prisma.attendance.count({
             where: {
@@ -554,7 +554,7 @@ async function getEngagementTypeDistribution(where: any) {
 }
 
 // Helper function to get event engagement levels
-async function getEventEngagementLevels(where: any) {
+async function getEventEngagementLevels(where: Record<string, unknown>) {
     try {
         // Get all members with their engagement counts
         const members = await prisma.member.findMany({
@@ -631,7 +631,7 @@ async function getEventEngagementLevels(where: any) {
 }
 
 // Helper function to calculate engagement rate
-function calculateEngagementRate(eventData: any, designationData: any): number {
+function calculateEngagementRate(eventData: Record<string, unknown>, designationData: Record<string, unknown>): number {
     const totalEngagement = eventData.totalAttendance + designationData.totalContributions;
     const totalMembers = eventData.events.length + designationData.contributions.length;
     
@@ -639,7 +639,7 @@ function calculateEngagementRate(eventData: any, designationData: any): number {
 }
 
 // Helper function to calculate monthly growth
-function calculateMonthlyGrowth(trends: any[]): number {
+function calculateMonthlyGrowth(trends: Record<string, unknown>[]): number {
     if (trends.length < 2) return 0;
     
     const current = trends[trends.length - 1];
@@ -651,11 +651,11 @@ function calculateMonthlyGrowth(trends: any[]): number {
 }
 
 // Helper function to generate sample trends data
-function generateSampleTrends() {
+function _generateSampleTrends() {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const currentMonth = new Date().getMonth();
     
-    return months.slice(currentMonth - 11, currentMonth + 1).map((month, index) => ({
+    return months.slice(currentMonth - 11, currentMonth + 1).map((month, _index) => ({
         month,
         eventAttendance: Math.floor(Math.random() * 100) + 50,
         designationParticipation: Math.floor(Math.random() * 50) + 20,
@@ -666,7 +666,7 @@ function generateSampleTrends() {
 }
 
 // Helper function to check if there's any engagement data in the database
-async function checkForAnyEngagementData(where: any) {
+async function checkForAnyEngagementData(where: Record<string, unknown>) {
     try {
         // Check for any attendance records
         const attendanceCount = await prisma.attendance.count({
@@ -700,7 +700,7 @@ async function checkForAnyEngagementData(where: any) {
 }
 
 // Helper function to generate sample regional data
-function generateSampleRegionalData() {
+function _generateSampleRegionalData() {
     const regions = ['Kigali', 'Northern', 'Southern', 'Eastern', 'Western'];
     
     return regions.map(region => ({

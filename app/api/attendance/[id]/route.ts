@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { getUserScope } from "@/lib/rls";
 
 // Helper function to check if user has access to an attendance record
-async function checkAttendanceAccess(userId: string, attendanceId: number): Promise<{ hasAccess: boolean; attendanceRecord?: any; error?: string }> {
+async function checkAttendanceAccess(userId: string, attendanceId: number): Promise<{ hasAccess: boolean; attendanceRecord?: unknown; error?: string }> {
     try {
         const userScope = await getUserScope();
         
@@ -64,7 +63,7 @@ export async function GET(
     }
 
     // Check access permission for this attendance record
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
@@ -98,7 +97,8 @@ export async function GET(
     });
 
     return NextResponse.json(attendanceRecord, { status: 200 });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    console.error("Error fetching attendance record:", error);
     return NextResponse.json({ error: "Failed to fetch attendance record" }, { status: 500 });
   }
 }
@@ -114,7 +114,7 @@ export async function PATCH(
     }
 
     // Check access permission for this attendance record
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
@@ -153,10 +153,11 @@ export async function PATCH(
     });
 
     return NextResponse.json(updatedAttendance, { status: 200 });
-  } catch (error: any) {
-    if (error.code === 'P2025') {
+  } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2025') {
       return NextResponse.json({ error: "Attendance record not found" }, { status: 404 });
     }
+    console.error("Error updating attendance record:", error);
     return NextResponse.json({ error: "Failed to update attendance record" }, { status: 500 });
   }
 }
@@ -172,7 +173,7 @@ export async function DELETE(
     }
 
     // Check access permission for this attendance record
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
@@ -190,10 +191,11 @@ export async function DELETE(
     });
 
     return NextResponse.json({ message: "Attendance record deleted successfully" }, { status: 200 });
-  } catch (error: any) {
-    if (error.code === 'P2025') {
+  } catch (error: unknown) {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2025') {
       return NextResponse.json({ error: "Attendance record not found" }, { status: 404 });
     }
+    console.error("Error deleting attendance record:", error);
     return NextResponse.json({ error: "Failed to delete attendance record" }, { status: 500 });
   }
 } 

@@ -74,7 +74,7 @@ export function DeleteDesignationModal({
                         Warning: This action cannot be undone
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        You are about to delete the designation: <span className="font-semibold text-foreground">"{designationName}"</span>
+                        You are about to delete the designation: <span className="font-semibold text-foreground">&quot;{designationName}&quot;</span>
                       </p>
                       <p className="text-sm text-muted-foreground">
                         This designation will be permanently removed from the system. If there are any contributions associated with this designation, the deletion will be prevented.

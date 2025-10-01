@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createPermanentMinistryEventSchema } from "../../validation/permanentMinistryEvent";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { getUserScope } from "@/lib/rls";
 
 // GET single event
@@ -28,7 +27,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         }
 
         // Apply RLS - check if user can access this event
-        const session = await getServerSession(authOptions);
+        const session = await auth();
         if (session?.user?.id) {
             try {
                 const userScope = await getUserScope();
@@ -100,7 +99,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         }
 
         // RLS: ensure user can update this event
-        const session = await getServerSession(authOptions);
+        const session = await auth();
         if (!session?.user?.id) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
@@ -234,7 +233,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
         }
 
         // RLS: ensure user can delete this event
-        const session = await getServerSession(authOptions);
+        const session = await auth();
         if (!session?.user?.id) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
-import { Search, RefreshCw, Plus, Edit, Calendar, Users, CheckCircle, XCircle, Clock, AlertCircle, Download } from 'lucide-react';
+import { Search, RefreshCw, Plus, Calendar, Users, CheckCircle, XCircle, Download, AlertCircle } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { AppSidebar } from "@/components/app-sidebar";
 import { SuperAdminScopeSelector } from "@/components/super-admin-scope-selector";
@@ -81,7 +81,7 @@ export default function AttendancePage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [attendance, setAttendance] = useState<{ [memberId: string]: string }>({});
   const [isLoadingMembers, setIsLoadingMembers] = useState(false);
-  const [memberError, setMemberError] = useState<string | null>(null);
+  const [_memberError, setMemberError] = useState<string | null>(null);
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -135,7 +135,7 @@ export default function AttendancePage() {
     if (!scopeLoading) {
       fetchEvents();
     }
-  }, [scopeLoading, regionId, universityId, smallGroupId, alumniGroupId]);
+  }, [scopeLoading, regionId, universityId, smallGroupId, alumniGroupId, fetchEvents]);
 
   // Fetch regions for filter dropdowns
   useEffect(() => {
@@ -173,14 +173,14 @@ export default function AttendancePage() {
       setMembers([]);
       setAttendance({});
     }
-  }, [selectedEvent, regionId, universityId, smallGroupId, alumniGroupId]);
+  }, [selectedEvent, regionId, universityId, smallGroupId, alumniGroupId, fetchMembers]);
 
   // Fetch attendance records when filters change
   useEffect(() => {
     if (activeTab === 'view') {
       fetchAttendanceRecords();
     }
-  }, [activeTab, eventFilter, statusFilter, dateFrom, dateTo, regionId, universityId, smallGroupId, alumniGroupId, selectedRegionFilter, selectedUniversityFilter, selectedSmallGroupFilter, selectedAlumniGroupFilter]);
+  }, [activeTab, eventFilter, statusFilter, dateFrom, dateTo, regionId, universityId, smallGroupId, alumniGroupId, selectedRegionFilter, selectedUniversityFilter, selectedSmallGroupFilter, selectedAlumniGroupFilter, fetchAttendanceRecords]);
 
   const fetchEvents = async () => {
     try {
@@ -378,7 +378,7 @@ export default function AttendancePage() {
     try {
       const response = await axios.post("/api/attendance", attendanceRecords);
       
-      if (response.status === 201 && response.data.results?.every((r: any) => r.success)) {
+      if (response.status === 201 && response.data.results?.every((r: Record<string, unknown>) => r.success)) {
         const eventName = events.find(e => e.id.toString() === selectedEvent)?.name || "the selected event";
         const memberCount = members.length;
         setSubmitMessage(`Attendance for ${memberCount} member(s) at "${eventName}" has been saved successfully!`);
@@ -388,8 +388,8 @@ export default function AttendancePage() {
         setSelectedEvent("");
       } else {
         const errorMessages = response.data.results
-          ?.filter((r: any) => !r.success)
-          ?.map((r: any) => {
+          ?.filter((r: Record<string, unknown>) => !r.success)
+          ?.map((r: Record<string, unknown>) => {
             if (typeof r.error === 'object') {
               return Object.values(r.error).flat().join(", ");
             }
@@ -398,7 +398,7 @@ export default function AttendancePage() {
           ?.join(", ") || "Some attendance records could not be saved.";
         setSubmitError(errorMessages);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setSubmitError("Failed to save attendance. " + (err.message || ""));
     }
   };
@@ -433,7 +433,7 @@ export default function AttendancePage() {
       } else {
         setEditError(response.data.error || "Failed to update attendance.");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setEditError("Failed to update attendance. " + (err.message || ""));
     }
   };
@@ -545,7 +545,7 @@ export default function AttendancePage() {
 
       // Add summary statistics
       if (attendanceDetails.length > 0) {
-        const stats = attendanceDetails.reduce((acc: any, record: any) => {
+        const stats = attendanceDetails.reduce((acc: Record<string, number>, record: Record<string, unknown>) => {
           acc.total++;
           if (record.attendanceStatus === 'present') acc.present++;
           else if (record.attendanceStatus === 'absent') acc.absent++;
@@ -593,7 +593,7 @@ export default function AttendancePage() {
         pdf.setFont('helvetica', 'normal');
         pdf.setFontSize(8);
         
-        attendanceDetails.forEach((record: any, index: number) => {
+        attendanceDetails.forEach((record: Record<string, unknown>, _index: number) => {
           // Check if we need a new page
           if (currentY > pageHeight - 20) {
             pdf.addPage();

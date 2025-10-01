@@ -1,5 +1,4 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 
 // User scope interface
 export interface UserScope {
@@ -24,7 +23,7 @@ export interface RLSConditions {
  */
 export async function getUserScope(): Promise<UserScope | null> {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     
     if (!session?.user?.roles || session.user.roles.length === 0) {
       return null;

@@ -1,22 +1,23 @@
 {
   "pages": {
     "/links/activities/events/page": [
-      "static/chunks/841e7ed0ff0b2ba5.js",
+      "static/chunks/ff1a16fafef87110.js",
+      "static/chunks/6a7993b07cb97bb3.js",
       "static/chunks/2473c16c0c2f6b5f.css",
       "static/chunks/7feed177ce3e2c60.css",
-      "static/chunks/56f49c55a0e88801.js",
-      "static/chunks/540d2c6aee5f5660.js",
+      "static/chunks/7b63cccee029d101.js",
       "static/chunks/9df83b1bdbe9226e.js",
       "static/chunks/44f3fe9c7428230f.js",
       "static/chunks/02bea583c1844492.js",
       "static/chunks/f94a349058fec6c5.js",
       "static/chunks/42eefad4b80d1ba0.js",
-      "static/chunks/1dc84fa634aca179.js",
-      "static/chunks/5d42197f764f004e.js",
+      "static/chunks/06a260b7e125d365.js",
+      "static/chunks/5bb689ba387e0e94.js",
       "static/chunks/3ef893a7643a907b.js",
-      "static/chunks/a9feb1d8efb4f4e1.js",
-      "static/chunks/51e7c41e9e551175.js",
-      "static/chunks/turbopack-baf5e2c0a07fb8c1.js"
+      "static/chunks/63dba52cde864d84.js",
+      "static/chunks/ad485e1ef0aa584e.js",
+      "static/chunks/75a3f12660976f11.js",
+      "static/chunks/turbopack-62a813df5682e913.js"
     ]
   }
 }

@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import Link from 'next/link';
 import axios from 'axios';
-import { Search, RefreshCw, UserPlus, Edit, Trash2, Eye, Users, Mail, Phone, Shield, Calendar, UserCheck } from 'lucide-react';
+import { Search, RefreshCw, UserPlus, Edit, Trash2, Eye, Users, Mail, Phone, Calendar, UserCheck } from 'lucide-react';
 import { AppSidebar } from "@/components/app-sidebar";
 import { AddUserModal } from "@/components/add-user-modal";
 import { DeleteUserModal } from "@/components/delete-user-modal";
@@ -93,7 +94,7 @@ export default function UserManagementPage() {
   // Load users on component mount and when search/page changes
   useEffect(() => {
     fetchUsers();
-  }, [currentPage, searchTerm]);
+  }, [currentPage, searchTerm, fetchUsers]);
 
   // Fetch users from API
   const fetchUsers = async () => {
@@ -190,11 +191,11 @@ export default function UserManagementPage() {
     setCurrentPage(Math.max(1, page));
   };
 
-  const goToPreviousPage = () => {
+  const _goToPreviousPage = () => {
     goToPage(currentPage - 1);
   };
 
-  const goToNextPage = () => {
+  const _goToNextPage = () => {
     goToPage(currentPage + 1);
   };
 
@@ -214,7 +215,7 @@ export default function UserManagementPage() {
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
           <p className="text-muted-foreground mb-4">You need to be logged in to access this page.</p>
-          <a href="/" className="text-primary hover:underline">Go to Login</a>
+          <Link href="/" className="text-primary hover:underline">Go to Login</Link>
         </div>
       </div>
     );

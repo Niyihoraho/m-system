@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(smallGroup, { status: 200 });
         }
         
-        let where: any = {};
+        const where: Record<string, unknown> = {};
         
         // Apply explicit filters if provided
         if (regionId) {

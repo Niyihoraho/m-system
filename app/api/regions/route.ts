@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getUserScope, generateRLSConditions } from "@/lib/rls";
+import { getUserScope } from "@/lib/rls";
 
 export async function GET(request: NextRequest) {
     try {
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Return regions based on user scope
-        let where: any = {};
+        const where: Record<string, unknown> = {};
         
         // If user has region scope, only return their region
         if (userScope.scope === 'region' && userScope.regionId) {

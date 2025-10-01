@@ -2,8 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 import { createMemberSchema } from "../validation/member";
 import { getUserScope, generateRLSConditions } from "@/lib/rls";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+// import { auth } from "@/lib/auth";
 
 
 
@@ -60,7 +59,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Helper function to handle empty strings and null values
-        const handleEmptyValue = (value: any) => {
+        const handleEmptyValue = (value: unknown) => {
             if (value === "" || value === null || value === undefined) {
                 return null;
             }
@@ -68,7 +67,7 @@ export async function POST(request: NextRequest) {
         };
 
         // Helper function to handle numeric values
-        const handleNumericValue = (value: any) => {
+        const handleNumericValue = (value: unknown) => {
             if (value === "" || value === null || value === undefined) {
                 return null;
             }
@@ -76,7 +75,7 @@ export async function POST(request: NextRequest) {
         };
 
         // Helper function to handle date values
-        const handleDateValue = (value: any) => {
+        const handleDateValue = (value: unknown) => {
             if (value === "" || value === null || value === undefined) {
                 return null;
             }
@@ -97,8 +96,8 @@ export async function POST(request: NextRequest) {
                 localChurch: handleEmptyValue(data.localChurch),
                 email: handleEmptyValue(data.email),
                 phone: handleEmptyValue(data.phone),
-                type: data.type.toLowerCase() as any,
-                status: data.status ? (data.status.toLowerCase() as any) : "active",
+                type: data.type.toLowerCase() as 'student' | 'alumni',
+                status: data.status ? (data.status.toLowerCase() as 'active' | 'inactive' | 'suspended') : "active",
                 regionId: handleNumericValue(data.regionId),
                 universityId: handleNumericValue(data.universityId),
                 smallGroupId: handleNumericValue(data.smallGroupId),
@@ -108,11 +107,11 @@ export async function POST(request: NextRequest) {
                 professionalism: handleEmptyValue(data.professionalism),
                 maritalStatus: handleEmptyValue(data.maritalStatus),
                 updatedAt: new Date(),
-            } as any,
+            } as 'student' | 'alumni',
         });
 
         return NextResponse.json(newMember, { status: 201 });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Error creating member:", error);
         
         // Handle specific Prisma errors
@@ -188,7 +187,7 @@ export async function GET(request: NextRequest) {
 
         // Build the filter object with RLS conditions
         const rlsConditions = generateRLSConditions(userScope);
-        let where: any = { ...rlsConditions };
+        const where: Record<string, unknown> = { ...rlsConditions };
 
         // Apply explicit filters if they exist (but they must be within user's scope)
         if (smallGroupId) {
@@ -325,7 +324,7 @@ export async function PUT(request: NextRequest) {
         }
 
         // Helper function to handle empty strings and null values
-        const handleEmptyValue = (value: any) => {
+        const handleEmptyValue = (value: unknown) => {
             if (value === "" || value === null || value === undefined) {
                 return null;
             }
@@ -333,7 +332,7 @@ export async function PUT(request: NextRequest) {
         };
 
         // Helper function to handle numeric values
-        const handleNumericValue = (value: any) => {
+        const handleNumericValue = (value: unknown) => {
             if (value === "" || value === null || value === undefined) {
                 return null;
             }
@@ -341,7 +340,7 @@ export async function PUT(request: NextRequest) {
         };
 
         // Helper function to handle date values
-        const handleDateValue = (value: any) => {
+        const handleDateValue = (value: unknown) => {
             if (value === "" || value === null || value === undefined) {
                 return null;
             }
@@ -364,8 +363,8 @@ export async function PUT(request: NextRequest) {
                 localChurch: handleEmptyValue(data.localChurch),
                 email: handleEmptyValue(data.email),
                 phone: handleEmptyValue(data.phone),
-                type: data.type.toLowerCase() as any,
-                status: data.status ? (data.status.toLowerCase() as any) : "active",
+                type: data.type.toLowerCase() as 'student' | 'alumni',
+                status: data.status ? (data.status.toLowerCase() as 'active' | 'inactive' | 'suspended') : "active",
                 regionId: handleNumericValue(data.regionId),
                 universityId: handleNumericValue(data.universityId),
                 smallGroupId: handleNumericValue(data.smallGroupId),
@@ -375,7 +374,7 @@ export async function PUT(request: NextRequest) {
                 professionalism: handleEmptyValue(data.professionalism),
                 maritalStatus: handleEmptyValue(data.maritalStatus),
                 updatedAt: new Date(),
-            } as any,
+            } as 'student' | 'alumni',
             include: {
                 region: true,
                 university: true,
@@ -385,7 +384,7 @@ export async function PUT(request: NextRequest) {
         });
 
         return NextResponse.json(updatedMember, { status: 200 });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Error updating member:", error);
         
         // Handle specific Prisma errors
@@ -471,7 +470,7 @@ export async function DELETE(request: NextRequest) {
             { message: "Member deleted successfully" },
             { status: 200 }
         );
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Error deleting member:", error);
         
         // Handle specific Prisma errors

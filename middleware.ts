@@ -1,38 +1,40 @@
-import { withAuth } from "next-auth/middleware"
+import { auth } from "@/lib/auth"
 
-export default withAuth(
-  function middleware(req) {
-    // Add any additional middleware logic here
-  },
-  {
-    callbacks: {
-      authorized: ({ token, req }) => {
-        // Allow access to root page (login page) without authentication
-        if (req.nextUrl.pathname === '/') {
-          return true
-        }
-        
-        // Allow access to API auth routes
-        if (req.nextUrl.pathname.startsWith('/api/auth')) {
-          return true
-        }
-        
-        // Explicitly protect dashboard and all sub-routes
-        if (req.nextUrl.pathname.startsWith('/dashboard')) {
-          return !!token
-        }
-        
-        // Explicitly protect all links routes
-        if (req.nextUrl.pathname.startsWith('/links')) {
-          return !!token
-        }
-        
-        // Require authentication for all other routes
-        return !!token
-      },
-    },
+export default auth((req) => {
+  const { nextUrl } = req
+  const isLoggedIn = !!req.auth
+
+  // Allow access to root page (login page) without authentication
+  if (nextUrl.pathname === '/') {
+    return
   }
-)
+  
+  // Allow access to API auth routes
+  if (nextUrl.pathname.startsWith('/api/auth')) {
+    return
+  }
+  
+  // Explicitly protect dashboard and all sub-routes
+  if (nextUrl.pathname.startsWith('/dashboard')) {
+    if (!isLoggedIn) {
+      return Response.redirect(new URL('/', nextUrl))
+    }
+    return
+  }
+  
+  // Explicitly protect all links routes
+  if (nextUrl.pathname.startsWith('/links')) {
+    if (!isLoggedIn) {
+      return Response.redirect(new URL('/', nextUrl))
+    }
+    return
+  }
+  
+  // Require authentication for all other routes
+  if (!isLoggedIn) {
+    return Response.redirect(new URL('/', nextUrl))
+  }
+})
 
 export const config = {
   matcher: [

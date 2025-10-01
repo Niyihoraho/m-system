@@ -91,7 +91,7 @@ export function DeleteContributionModal({
                         Warning: This action cannot be undone
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        You are about to delete the contribution from <span className="font-semibold text-foreground">"{contributorName}"</span> for <span className="font-semibold text-foreground">{contributionAmount.toLocaleString()} RWF</span>.
+                        You are about to delete the contribution from <span className="font-semibold text-foreground">&quot;{contributorName}&quot;</span> for <span className="font-semibold text-foreground">{contributionAmount.toLocaleString()} RWF</span>.
                       </p>
                       <p className="text-sm text-muted-foreground">
                         This contribution will be permanently removed from the system. Any associated receipts and payment records will also be deleted.

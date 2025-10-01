@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(alumniSmallGroup, { status: 200 });
         }
         
-        let where: any = {};
+        const where: Record<string, unknown> = {};
         
         // Apply explicit region filter if provided
         if (regionId) {

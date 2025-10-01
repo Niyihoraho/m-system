@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
         
         // Build where clause with RLS conditions
         const rlsConditions = generateRLSConditions(userScope);
-        let where: any = { ...rlsConditions };
+        const where: Record<string, unknown> = { ...rlsConditions };
         
         // Apply region filter if provided (but it must be within user's scope)
         if (regionId) {

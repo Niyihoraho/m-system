@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
         const graduationYear = searchParams.get("graduationYear");
 
         // Build the filter object
-        let where: any = {};
+        const where: Record<string, unknown> = {};
 
         // Apply organizational filters
         if (regionId && regionId !== 'all') {

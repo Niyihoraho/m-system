@@ -53,17 +53,18 @@ export async function POST(request: NextRequest) {
         });
 
         // Remove password from response
-        const { password, ...userWithoutPassword } = newUser;
+        const { password: _password, ...userWithoutPassword } = newUser;
 
         return NextResponse.json({
             user: userWithoutPassword,
             message: "User registered successfully"
         }, { status: 201 });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Error during registration:", error);
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
         return NextResponse.json(
-            { error: "Registration failed", details: error.message },
+            { error: "Registration failed", details: errorMessage },
             { status: 500 }
         );
     }

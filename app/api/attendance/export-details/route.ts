@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 
     // Build where clause with RLS conditions
     const memberRLSConditions = getTableRLSConditions(userScope, 'member');
-    let where: any = {
+    const where: Record<string, unknown> = {
       member: { ...memberRLSConditions }
     };
 
