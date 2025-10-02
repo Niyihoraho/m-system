@@ -12,7 +12,7 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
+  
 } from "@/components/ui/ui copy/sheet"
 import { Edit, User, Mail, Phone, MapPin, GraduationCap, Building2, Users, Church, Calendar } from "lucide-react"
 import { createMemberSchema } from "@/app/api/validation/member"
@@ -388,10 +388,10 @@ export function EditMemberModal({ member, onMemberUpdated, isOpen, onClose }: Ed
       createMemberSchema.parse(formData)
       setErrors({})
       return true
-    } catch (error: any) {
+    } catch (error: unknown) {
       const newErrors: Record<string, string> = {}
-      if (error.errors) {
-        error.errors.forEach((err: any) => {
+      if (error && typeof error === 'object' && 'errors' in error && Array.isArray(error.errors)) {
+        error.errors.forEach((err: { path: string[]; message: string }) => {
           newErrors[err.path[0]] = err.message
         })
       }
@@ -468,7 +468,7 @@ export function EditMemberModal({ member, onMemberUpdated, isOpen, onClose }: Ed
         // Handle API errors
         console.error('API Error:', data)
         if (data.details) {
-          setErrors({ general: Array.isArray(data.details) ? data.details.map((d: any) => d.message).join(', ') : data.details })
+          setErrors({ general: Array.isArray(data.details) ? data.details.map((d: { message: string }) => d.message).join(', ') : data.details })
         } else {
           setErrors({ general: data.error || "Failed to update member" })
         }

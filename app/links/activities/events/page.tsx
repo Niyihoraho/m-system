@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Search, RefreshCw, Plus, Edit, Trash2, Calendar, AlertCircle } from 'lucide-react';
+import { Search, RefreshCw, Plus, Edit, Trash2, Calendar } from 'lucide-react';
 import { AppSidebar } from "@/components/app-sidebar";
 import { AddEventModal } from "@/components/add-event-modal";
 import { DeleteEventModal } from "@/components/delete-event-modal";

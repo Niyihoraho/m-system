@@ -166,7 +166,7 @@ export function hasPermission(
  * Get RLS conditions for specific tables
  * Some tables don't have all the foreign key columns, so we need to map appropriately
  */
-export function getTableRLSConditions(userScope: UserScope, tableName: string): any {
+export function getTableRLSConditions(userScope: UserScope, tableName: string): Record<string, unknown> {
   const rlsConditions = generateRLSConditions(userScope);
   
   switch (tableName) {

@@ -83,7 +83,7 @@ export async function PUT(
     const validatedData = contributionSchema.parse(body);
     
     // Update contributor
-    const contributor = await prisma.contributor.update({
+    const _contributor = await prisma.contributor.update({
       where: { id: validatedData.contributor.id },
       data: {
         name: validatedData.contributor.name,

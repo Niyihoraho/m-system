@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     const graduationYear = searchParams.get("graduationYear");
 
     // Build where clause
-    const where: any = {};
+    const where: Record<string, unknown> = {};
 
     // Date range filter
     if (dateFrom || dateTo) {

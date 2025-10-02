@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createMemberSchema } from "../../validation/member";
+import { ImportMemberData } from "@/types/api";
 
 interface ImportResult {
   success: number;
-  errors: Array<{ row: number; error: string; data?: any }>;
+  errors: Array<{ row: number; error: string; data?: ImportMemberData }>;
 }
 
 export async function POST(request: NextRequest) {
@@ -25,7 +26,7 @@ export async function POST(request: NextRequest) {
         };
 
         // Helper function to handle empty strings and null values
-        const handleEmptyValue = (value: any) => {
+        const handleEmptyValue = (value: unknown) => {
             if (value === "" || value === null || value === undefined) {
                 return null;
             }
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
         };
 
         // Helper function to handle numeric values
-        const handleNumericValue = (value: any) => {
+        const handleNumericValue = (value: unknown) => {
             if (value === "" || value === null || value === undefined) {
                 return null;
             }
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
         };
 
         // Helper function to handle date values
-        const handleDateValue = (value: any) => {
+        const handleDateValue = (value: unknown) => {
             if (value === "" || value === null || value === undefined) {
                 return null;
             }
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest) {
                 const data = validation.data;
 
                 // Create the member
-                const memberDataToCreate: any = {
+                const memberDataToCreate: Record<string, unknown> = {
                     firstname: handleEmptyValue(data.firstname),
                     secondname: handleEmptyValue(data.secondname),
                     gender: handleEmptyValue(data.gender?.toLowerCase()),
@@ -84,8 +85,8 @@ export async function POST(request: NextRequest) {
                     localChurch: handleEmptyValue(data.localChurch),
                     email: handleEmptyValue(data.email),
                     phone: handleEmptyValue(data.phone),
-                    type: data.type.toLowerCase() as any,
-                    status: data.status ? (data.status.toLowerCase() as any) : "active",
+                    type: data.type.toLowerCase(),
+                    status: data.status ? data.status.toLowerCase() : "active",
                     graduationDate: handleDateValue(data.graduationDate),
                     faculty: handleEmptyValue(data.faculty),
                     professionalism: handleEmptyValue(data.professionalism),
@@ -104,12 +105,12 @@ export async function POST(request: NextRequest) {
                 if (smallGroupId !== null) memberDataToCreate.smallGroupId = smallGroupId;
                 if (alumniGroupId !== null) memberDataToCreate.alumniGroupId = alumniGroupId;
 
-                const newMember = await prisma.member.create({
+                const _newMember = await prisma.member.create({
                     data: memberDataToCreate,
                 });
 
                 results.success++;
-            } catch (error: any) {
+            } catch (error: unknown) {
                 console.error(`Error creating member at row ${rowNumber}:`, error);
                 
                 let errorMessage = "Unknown error";
@@ -138,7 +139,7 @@ export async function POST(request: NextRequest) {
         }
 
         return NextResponse.json(results, { status: 200 });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Error in bulk import:", error);
         return NextResponse.json(
             { error: "Internal server error" },

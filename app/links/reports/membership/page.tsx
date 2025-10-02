@@ -43,7 +43,7 @@ import {
 } from '@/components/ui/sidebar';
 
 // Icons
-const UsersIcon = (props: any) => (
+const UsersIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg width="24" height="24" fill="none" viewBox="0 0 24 24" {...props}>
     <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
     <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="2"/>
@@ -52,14 +52,14 @@ const UsersIcon = (props: any) => (
   </svg>
 );
 
-const TrendingUpIcon = (props: any) => (
+const TrendingUpIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg width="24" height="24" fill="none" viewBox="0 0 24 24" {...props}>
     <polyline points="23,6 13.5,15.5 8.5,10.5 1,18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
     <polyline points="17,6 23,6 23,12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
 
-const GraduationCapIcon = (props: any) => (
+const GraduationCapIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg width="24" height="24" fill="none" viewBox="0 0 24 24" {...props}>
     <path d="M22 10v6M2 10l10-5 10 5-10 5z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
     <path d="M6 12v5c3 3 9 3 12 0v-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -98,10 +98,10 @@ export default function MembershipReportsPage() {
   const reportRef = useRef<HTMLDivElement>(null);
 
   // Cascading dropdown data
-  const [regions, setRegions] = useState<any[]>([]);
-  const [universities, setUniversities] = useState<any[]>([]);
-  const [smallGroups, setSmallGroups] = useState<any[]>([]);
-  const [alumniGroups, setAlumniGroups] = useState<any[]>([]);
+  const [regions, setRegions] = useState<Array<{id: number; name: string}>>([]);
+  const [universities, setUniversities] = useState<Array<{id: number; name: string; regionId: number}>>([]);
+  const [smallGroups, setSmallGroups] = useState<Array<{id: number; name: string; regionId: number; universityId: number}>>([]);
+  const [alumniGroups, setAlumniGroups] = useState<Array<{id: number; name: string; regionId: number}>>([]);
 
   // Authentication check
   useEffect(() => {
@@ -111,7 +111,7 @@ export default function MembershipReportsPage() {
   }, [status, router]);
 
   // Mock data generators
-  const generateMembershipGrowthData = () => {
+  const _generateMembershipGrowthData = () => {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const currentMonth = new Date().getMonth();
     
@@ -138,7 +138,7 @@ export default function MembershipReportsPage() {
     });
   };
 
-  const generateMemberTypeData = () => [
+  const _generateMemberTypeData = () => [
     { name: 'Students', value: 65, color: '#3B82F6', count: 1250 },
     { name: 'Graduates', value: 20, color: '#10B981', count: 385 },
     { name: 'Alumni', value: 10, color: '#F59E0B', count: 192 },
@@ -146,7 +146,7 @@ export default function MembershipReportsPage() {
     { name: 'Volunteers', value: 2, color: '#EF4444', count: 38 }
   ];
 
-  const generateRegionalData = () => [
+  const _generateRegionalData = () => [
     { region: 'North', members: 450, growth: 12, universities: 8 },
     { region: 'South', members: 380, growth: 8, universities: 6 },
     { region: 'East', members: 520, growth: 15, universities: 10 },
@@ -154,12 +154,12 @@ export default function MembershipReportsPage() {
     { region: 'Central', members: 290, growth: 3, universities: 4 }
   ];
 
-  const generateGenderData = () => [
+  const _generateGenderData = () => [
     { name: 'Male', value: 55, color: '#3B82F6', count: 1056 },
     { name: 'Female', value: 45, color: '#EC4899', count: 864 }
   ];
 
-  const generateMemberFlowData = () => {
+  const _generateMemberFlowData = () => {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const currentMonth = new Date().getMonth();
     
@@ -173,7 +173,12 @@ export default function MembershipReportsPage() {
   };
 
   // State for data
-  const [analyticsData, setAnalyticsData] = useState<any>(null);
+  const [analyticsData, setAnalyticsData] = useState<{
+    totalMembers: number;
+    activeMembers: number;
+    memberTypeDistribution: Array<{name: string; value: number; color: string}>;
+    genderDistribution: Array<{name: string; value: number; color: string}>;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -552,7 +557,7 @@ export default function MembershipReportsPage() {
         
         // Add member data
         pdf.setFont('helvetica', 'normal');
-        memberDetails.members.forEach((member: any, index: number) => {
+        memberDetails.members.forEach((member: { firstName: string; lastName: string; email?: string; phone?: string; region?: string; university?: string; smallGroup?: string; alumniGroup?: string; type: string; status: string; gender?: string; age?: number; profession?: string; faculty?: string; createdAt: string }, _index: number) => {
           // Check if we need a new page
           if (yPosition > pageHeight - 20) {
             pdf.addPage();
@@ -1302,12 +1307,12 @@ export default function MembershipReportsPage() {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, percent }: any) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                    label={({ name, percent }: { name: string; percent?: number }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
                   >
-                    {(analyticsData?.memberTypeDistribution || []).map((entry: any, index: number) => (
+                    {(analyticsData?.memberTypeDistribution || []).map((entry: { name: string; value: number }, index: number) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
@@ -1408,12 +1413,12 @@ export default function MembershipReportsPage() {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, percent }: any) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                    label={({ name, percent }: { name: string; percent?: number }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
                   >
-                    {(analyticsData?.genderDistribution || []).map((entry: any, index: number) => (
+                    {(analyticsData?.genderDistribution || []).map((entry: { name: string; value: number }, index: number) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>

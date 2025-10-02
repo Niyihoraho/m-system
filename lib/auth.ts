@@ -95,7 +95,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (token) {
         session.user.id = token.sub!
         session.user.username = token.username as string
-        session.user.roles = token.roles as any[]
+        session.user.roles = token.roles as Array<{
+          scope: string;
+          regionId?: number;
+          universityId?: number;
+          smallGroupId?: number;
+          alumniGroupId?: number;
+          region?: { name: string };
+          university?: { name: string };
+          smallgroup?: { name: string };
+          alumnismallgroup?: { name: string };
+        }>
       }
       return session
     }

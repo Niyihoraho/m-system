@@ -5,7 +5,7 @@ import { getUserScope, generateRLSConditions, UserScope } from "./rls";
  * Middleware to automatically apply RLS to API routes
  * This can be used to wrap API route handlers
  */
-export function withRLS<T extends any[]>(
+export function withRLS<T extends unknown[]>(
   handler: (request: NextRequest, userScope: UserScope, ...args: T) => Promise<NextResponse>
 ) {
   return async (request: NextRequest, ...args: T): Promise<NextResponse> => {
@@ -27,7 +27,7 @@ export function withRLS<T extends any[]>(
 /**
  * Helper function to create RLS-aware Prisma queries
  */
-export function createRLSQuery(userScope: UserScope, baseWhere: any = {}) {
+export function createRLSQuery(userScope: UserScope, baseWhere: Record<string, unknown> = {}) {
   const rlsConditions = generateRLSConditions(userScope);
   
   return {
@@ -59,7 +59,7 @@ export async function checkResourceAccess(
 /**
  * Helper function to get RLS conditions for specific tables
  */
-export function getTableRLSConditions(userScope: UserScope, tableName: string): any {
+export function getTableRLSConditions(userScope: UserScope, tableName: string): Record<string, unknown> {
   const rlsConditions = generateRLSConditions(userScope);
   
   // For tables that don't have all the foreign key columns,

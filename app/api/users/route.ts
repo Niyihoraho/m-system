@@ -53,13 +53,13 @@ export async function POST(request: NextRequest) {
         });
 
         // Remove password from response
-        const { password, ...userWithoutPassword } = newUser;
+        const { password: _, ...userWithoutPassword } = newUser;
 
         return NextResponse.json(userWithoutPassword, { status: 201 });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Error creating user:", error);
         return NextResponse.json(
-            { error: "Failed to create user", details: error.message },
+            { error: "Failed to create user", details: error instanceof Error ? error.message : 'Unknown error' },
             { status: 500 }
         );
     }
@@ -93,12 +93,12 @@ export async function GET(request: NextRequest) {
             }
             
             // Remove password from response
-            const { password, ...userWithoutPassword } = user;
+            const { password: _, ...userWithoutPassword } = user;
             return NextResponse.json(userWithoutPassword, { status: 200 });
         }
 
         // Build search conditions
-        const where: any = {};
+        const where: Record<string, unknown> = {};
         if (search) {
             where.OR = [
                 { name: { contains: search, mode: 'insensitive' } },
@@ -132,7 +132,7 @@ export async function GET(request: NextRequest) {
         ]);
 
         // Remove passwords from response
-        const usersWithoutPasswords = users.map(({ password, ...user }) => user);
+        const usersWithoutPasswords = users.map(({ password: _, ...user }) => user);
 
         return NextResponse.json({
             users: usersWithoutPasswords,
@@ -146,7 +146,7 @@ export async function GET(request: NextRequest) {
     } catch (error) {
         console.error("Error fetching users:", error);
         return NextResponse.json(
-            { error: "Failed to fetch users", details: error.message },
+            { error: "Failed to fetch users", details: error instanceof Error ? error.message : 'Unknown error' },
             { status: 500 }
         );
     }
@@ -191,13 +191,13 @@ export async function PUT(request: NextRequest) {
         });
 
         // Remove password from response
-        const { password, ...userWithoutPassword } = updatedUser;
+        const { password: _, ...userWithoutPassword } = updatedUser;
 
         return NextResponse.json(userWithoutPassword, { status: 200 });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Error updating user:", error);
         return NextResponse.json(
-            { error: "Failed to update user", details: error.message },
+            { error: "Failed to update user", details: error instanceof Error ? error.message : 'Unknown error' },
             { status: 500 }
         );
     }
@@ -236,10 +236,10 @@ export async function DELETE(request: NextRequest) {
             { message: "User deleted successfully" },
             { status: 200 }
         );
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Error deleting user:", error);
         return NextResponse.json(
-            { error: "Failed to delete user", details: error.message },
+            { error: "Failed to delete user", details: error instanceof Error ? error.message : 'Unknown error' },
             { status: 500 }
         );
     }

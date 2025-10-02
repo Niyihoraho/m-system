@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Search, RefreshCw, Plus, Edit, Trash2, Target, AlertCircle } from 'lucide-react';
+import { Search, RefreshCw, Plus, Edit, Trash2, Target } from 'lucide-react';
 import { AppSidebar } from "@/components/app-sidebar";
 import { AddDesignationModal } from "@/components/add-designation-modal";
 import { DeleteDesignationModal } from "@/components/delete-designation-modal";

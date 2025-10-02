@@ -1,6 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getUserScope, getTableRLSConditions } from "@/lib/rls";
+import { EventPayload } from "@/types/api";
+
+// Prisma where clause type for events
+interface EventWhereClause {
+  id?: number;
+  regionId?: number;
+  universityId?: number;
+  smallGroupId?: number;
+  alumniGroupId?: number;
+  type?: string;
+  [key: string]: unknown;
+}
 
 export async function GET(request: NextRequest) {
     try {
@@ -18,7 +30,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
         
-        let where: any = {};
+        let where: EventWhereClause = {};
         
         // If ID is provided, return specific event
         if (id) {
@@ -107,9 +119,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
-        const body = await request.json();
+        const body: EventPayload = await request.json();
         console.log('Event creation request body:', body);
-        const { name, type, regionId, universityId, smallGroupId, alumniGroupId, isActive } = body;
+        const { name, type, regionId, universityId: _universityId, smallGroupId: _smallGroupId, alumniGroupId: _alumniGroupId, isActive } = body;
 
         if (!name || name.trim() === '') {
             return NextResponse.json(
@@ -304,8 +316,8 @@ export async function PUT(request: NextRequest) {
             );
         }
 
-        const body = await request.json();
-        const { name, type, regionId, universityId, smallGroupId, alumniGroupId, isActive } = body;
+        const body: EventPayload = await request.json();
+        const { name, type, regionId, universityId: _universityId, smallGroupId: _smallGroupId, alumniGroupId: _alumniGroupId, isActive } = body;
 
         if (!name || name.trim() === '') {
             return NextResponse.json(

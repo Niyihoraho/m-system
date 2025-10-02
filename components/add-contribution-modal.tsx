@@ -296,7 +296,7 @@ export function AddContributionModal({ children, onContributionAdded }: AddContr
     }
   }
 
-  const getStepIcon = (step: number) => {
+  const _getStepIcon = (step: number) => {
     switch (step) {
       case 1: return <User className="h-5 w-5" />
       case 2: return <User className="h-5 w-5" />

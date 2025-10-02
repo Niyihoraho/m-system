@@ -54,7 +54,7 @@ const data = {
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { data: session, status } = useSession();
+  const { data: session, status: _status } = useSession();
   const { userRole } = useRoleAccess();
 
   // Get user role from shared context with fallback - always render with available data

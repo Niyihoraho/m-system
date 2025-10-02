@@ -50,7 +50,7 @@ export default function TestRegionsPage() {
     }
   };
 
-  const fetchSmallGroups = async (regionId, universityId) => {
+  const _fetchSmallGroups = async (regionId, universityId) => {
     try {
       console.log('Fetching small groups for region:', regionId, 'university:', universityId);
       const response = await fetch(`/api/small-groups?regionId=${regionId}&universityId=${universityId}`);

@@ -13,7 +13,7 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
+  
 } from "@/components/ui/ui copy/sheet"
 import { Edit, Calendar, MapPin, Building2, Users, GraduationCap, Activity } from "lucide-react"
 import { useUserScope } from "@/hooks/use-user-scope"
@@ -74,7 +74,7 @@ export function EditEventModal({ event, onEventUpdated, isOpen, onClose }: EditE
   const visibleFields = getVisibleFields()
   
   // Memoize default values to prevent infinite re-renders
-  const defaultValues = React.useMemo(() => getDefaultValues(), [userScope])
+  const _defaultValues = React.useMemo(() => getDefaultValues(), [userScope])
   
   const [regions, setRegions] = React.useState<Region[]>([])
   const [universities, setUniversities] = React.useState<University[]>([])

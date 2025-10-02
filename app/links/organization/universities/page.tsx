@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Search, RefreshCw, Plus, Edit, Trash2, Building2, AlertCircle } from 'lucide-react';
+import { Search, RefreshCw, Plus, Edit, Trash2, Building2 } from 'lucide-react';
 import { AppSidebar } from "@/components/app-sidebar";
 import { AddUniversityModal } from "@/components/add-university-modal";
 import { DeleteUniversityModal } from "@/components/delete-university-modal";

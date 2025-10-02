@@ -195,7 +195,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         };
         
         return NextResponse.json(transformedEvent, { status: 200 });
-    } catch (error: any) {
+    } catch (error: unknown) {
         if (typeof error === 'object' && error !== null && 'code' in error) {
             if (error.code === 'P2002') {
                 return NextResponse.json(

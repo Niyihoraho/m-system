@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Search, RefreshCw, Plus, Edit, Trash2, Users, AlertCircle } from 'lucide-react';
+import { Search, RefreshCw, Plus, Edit, Trash2, Users } from 'lucide-react';
 import { AppSidebar } from "@/components/app-sidebar";
 import { AddSmallGroupModal } from "@/components/add-small-group-modal";
 import { DeleteSmallGroupModal } from "@/components/delete-small-group-modal";

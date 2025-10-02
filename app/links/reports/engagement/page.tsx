@@ -45,7 +45,7 @@ import {
 } from '@/components/ui/sidebar';
 
 // Icons
-const UsersIcon = (props: any) => (
+const UsersIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg width="24" height="24" fill="none" viewBox="0 0 24 24" {...props}>
     <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
     <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="2"/>
@@ -54,14 +54,14 @@ const UsersIcon = (props: any) => (
   </svg>
 );
 
-const TrendingUpIcon = (props: any) => (
+const TrendingUpIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg width="24" height="24" fill="none" viewBox="0 0 24 24" {...props}>
     <polyline points="23,6 13.5,15.5 8.5,10.5 1,18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
     <polyline points="17,6 23,6 23,12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
 
-const CalendarIcon = (props: any) => (
+const CalendarIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg width="24" height="24" fill="none" viewBox="0 0 24 24" {...props}>
     <rect x="3" y="4" width="18" height="18" rx="2" ry="2" stroke="currentColor" strokeWidth="2"/>
     <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" strokeWidth="2"/>
@@ -70,7 +70,7 @@ const CalendarIcon = (props: any) => (
   </svg>
 );
 
-const AwardIcon = (props: any) => (
+const AwardIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg width="24" height="24" fill="none" viewBox="0 0 24 24" {...props}>
     <circle cx="12" cy="8" r="6" stroke="currentColor" strokeWidth="2"/>
     <path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -101,12 +101,12 @@ export default function EngagementReportsPage() {
   const reportRef = useRef<HTMLDivElement>(null);
 
   // Cascading dropdown data
-  const [regions, setRegions] = useState<any[]>([]);
-  const [universities, setUniversities] = useState<any[]>([]);
-  const [smallGroups, setSmallGroups] = useState<any[]>([]);
-  const [alumniGroups, setAlumniGroups] = useState<any[]>([]);
-  const [events, setEvents] = useState<any[]>([]);
-  const [designations, setDesignations] = useState<any[]>([]);
+  const [regions, setRegions] = useState<Array<{id: number; name: string}>>([]);
+  const [universities, setUniversities] = useState<Array<{id: number; name: string; regionId: number}>>([]);
+  const [smallGroups, setSmallGroups] = useState<Array<{id: number; name: string; regionId: number; universityId: number}>>([]);
+  const [alumniGroups, setAlumniGroups] = useState<Array<{id: number; name: string; regionId: number}>>([]);
+  const [events, setEvents] = useState<Array<{id: number; name: string; type: string}>>([]);
+  const [designations, setDesignations] = useState<Array<{id: number; name: string}>>([]);
 
   // Authentication check
   useEffect(() => {
@@ -157,7 +157,13 @@ export default function EngagementReportsPage() {
   ];
 
   // State for data
-  const [analyticsData, setAnalyticsData] = useState<any>(null);
+  const [analyticsData, setAnalyticsData] = useState<{
+    totalEvents: number;
+    totalAttendance: number;
+    averageAttendance: number;
+    engagementTypeDistribution: Array<{name: string; value: number; color: string}>;
+    eventEngagementLevels: Array<{name: string; value: number; color: string}>;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loadingEvents, setLoadingEvents] = useState(false);
@@ -590,7 +596,7 @@ export default function EngagementReportsPage() {
         
         // Add engagement data
         pdf.setFont('helvetica', 'normal');
-        engagementDetails.engagementDetails.slice(0, 50).forEach((detail: any, index: number) => {
+        engagementDetails.engagementDetails.slice(0, 50).forEach((detail: { name: string; value: number }, _index: number) => {
           // Check if we need a new page
           if (yPosition > pageHeight - 20) {
             pdf.addPage();
@@ -1224,12 +1230,12 @@ export default function EngagementReportsPage() {
                             cx="50%"
                             cy="50%"
                             labelLine={false}
-                            label={({ name, percent }: any) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                            label={({ name, percent }: { name: string; percent?: number }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
                             outerRadius={80}
                             fill="#8884d8"
                             dataKey="value"
                           >
-                            {chartData.engagementTypeDistribution.map((entry: any, index: number) => (
+                            {chartData.engagementTypeDistribution.map((entry: { name: string; value: number }, index: number) => (
                               <Cell key={`cell-${index}`} fill={entry.color} />
                             ))}
                           </Pie>
@@ -1356,12 +1362,12 @@ export default function EngagementReportsPage() {
                           cx="50%"
                           cy="50%"
                           labelLine={false}
-                          label={({ name, percent }: any) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                          label={({ name, percent }: { name: string; percent?: number }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
                           outerRadius={80}
                           fill="#8884d8"
                           dataKey="value"
                         >
-                          {chartData.eventEngagementLevels.map((entry: any, index: number) => (
+                          {chartData.eventEngagementLevels.map((entry: { name: string; value: number }, index: number) => (
                             <Cell key={`cell-${index}`} fill={entry.color} />
                           ))}
                         </Pie>

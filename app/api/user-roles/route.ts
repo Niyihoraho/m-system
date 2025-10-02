@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
                 universityId: data.universityId,
                 smallGroupId: data.smallGroupId,
                 alumniGroupId: data.alumniGroupId,
-                scope: data.scope as any,
+                scope: data.scope,
                 assignedAt: new Date(),
             },
             include: {
@@ -75,10 +75,10 @@ export async function POST(request: NextRequest) {
         });
 
         return NextResponse.json(newRole, { status: 201 });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Error creating user role:", error);
         return NextResponse.json(
-            { error: "Failed to create user role", details: error.message },
+            { error: "Failed to create user role", details: error instanceof Error ? error.message : 'Unknown error' },
             { status: 500 }
         );
     }
@@ -152,10 +152,10 @@ export async function GET(request: NextRequest) {
         });
 
         return NextResponse.json({ roles }, { status: 200 });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Error fetching user roles:", error);
         return NextResponse.json(
-            { error: "Failed to fetch user roles", details: error.message },
+            { error: "Failed to fetch user roles", details: error instanceof Error ? error.message : 'Unknown error' },
             { status: 500 }
         );
     }
@@ -190,7 +190,7 @@ export async function PUT(request: NextRequest) {
             where: { id: Number(id) },
             data: {
                 ...updateData,
-                scope: updateData.scope as any,
+                scope: updateData.scope,
             },
             include: {
                 region: true,
@@ -209,10 +209,10 @@ export async function PUT(request: NextRequest) {
         });
 
         return NextResponse.json(updatedRole, { status: 200 });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Error updating user role:", error);
         return NextResponse.json(
-            { error: "Failed to update user role", details: error.message },
+            { error: "Failed to update user role", details: error instanceof Error ? error.message : 'Unknown error' },
             { status: 500 }
         );
     }
@@ -251,10 +251,10 @@ export async function DELETE(request: NextRequest) {
             { message: "Role deleted successfully" },
             { status: 200 }
         );
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Error deleting user role:", error);
         return NextResponse.json(
-            { error: "Failed to delete user role", details: error.message },
+            { error: "Failed to delete user role", details: error instanceof Error ? error.message : 'Unknown error' },
             { status: 500 }
         );
     }

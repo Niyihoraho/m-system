@@ -74,8 +74,8 @@ export default function Page() {
   const [userScope, setUserScope] = useState<UserScope | null>(null);
   const [isLoadingScope, setIsLoadingScope] = useState(true);
   const [members, setMembers] = useState<Member[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [_loading, setLoading] = useState(true);
+  const [_error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({
     totalMembers: 0,
     activeMembers: 0,

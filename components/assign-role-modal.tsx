@@ -11,7 +11,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -20,8 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Shield, MapPin, Building2, Users, GraduationCap, X } from "lucide-react";
-import { userRoleSchema } from "@/app/api/validation/user";
+import { Shield, MapPin, Building2, Users, GraduationCap } from "lucide-react";
+
 import axios from "axios";
 
 interface Region {
@@ -52,7 +52,13 @@ interface AssignRoleModalProps {
   children: React.ReactNode;
   userId: string;
   userName: string;
-  existingRole?: any;
+  existingRole?: {
+    regionId?: number;
+    universityId?: number;
+    smallGroupId?: number;
+    alumniGroupId?: number;
+    scope?: string;
+  };
   onRoleAssigned?: () => void;
 }
 
@@ -282,18 +288,24 @@ export function AssignRoleModal({ children, userId, userName, existingRole, onRo
         }, 1500);
       }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error assigning role:', error);
-      console.error('Error response:', error.response?.data);
       
-      if (error.response?.data?.details && Array.isArray(error.response.data.details)) {
-        const newErrors: Record<string, string> = {};
-        error.response.data.details.forEach((detail: any) => {
-          newErrors[detail.path[0]] = detail.message;
-        });
-        setErrors(newErrors);
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: { details?: Array<{ path: string[]; message: string }>; error?: string } } };
+        console.error('Error response:', axiosError.response?.data);
+        
+        if (axiosError.response?.data?.details && Array.isArray(axiosError.response.data.details)) {
+          const newErrors: Record<string, string> = {};
+          axiosError.response.data.details.forEach((detail: { path: string[]; message: string }) => {
+            newErrors[detail.path[0]] = detail.message;
+          });
+          setErrors(newErrors);
+        } else {
+          setErrors({ general: axiosError.response?.data?.error || "Failed to assign role. Please try again." });
+        }
       } else {
-        setErrors({ general: error.response?.data?.error || "Failed to assign role. Please try again." });
+        setErrors({ general: "Failed to assign role. Please try again." });
       }
     } finally {
       setIsLoading(false);

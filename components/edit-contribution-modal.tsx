@@ -125,9 +125,9 @@ export function EditContributionModal({ contribution, isOpen, onClose, onContrib
     if (contribution) {
       setFormData({
         amount: contribution.amount.toString(),
-        method: contribution.method as any,
+        method: contribution.method,
         designationId: contribution.contributiondesignation?.id.toString() || "",
-        status: contribution.status as any,
+        status: contribution.status,
         contributor: {
           name: contribution.contributor.name,
           email: contribution.contributor.email || "",

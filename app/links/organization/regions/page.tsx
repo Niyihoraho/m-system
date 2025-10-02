@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Search, RefreshCw, Plus, Edit, Trash2, MapPin, AlertCircle } from 'lucide-react';
+import { Search, RefreshCw, Plus, Edit, Trash2, MapPin } from 'lucide-react';
 import { AppSidebar } from "@/components/app-sidebar";
 import { AddRegionModal } from "@/components/add-region-modal";
 import { DeleteRegionModal } from "@/components/delete-region-modal";

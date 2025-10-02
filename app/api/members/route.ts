@@ -228,7 +228,7 @@ export async function GET(request: NextRequest) {
         });
 
         return NextResponse.json({ members }, { status: 200 });
-    } catch (error) {
+    } catch (_error) {
         console.error("Error fetching members:", error);
         return NextResponse.json(
             { error: "Internal server error" },
@@ -416,7 +416,7 @@ export async function PUT(request: NextRequest) {
     }
 }
 
-export async function DELETE(request: NextRequest) {
+export async function DELETE(_request: NextRequest) {
     try {
         // Get user scope for RLS
         const userScope = await getUserScope();
@@ -497,7 +497,7 @@ export async function GET_UNIVERSITIES(request: NextRequest) {
             select: { id: true, name: true }
         });
         return NextResponse.json(universities, { status: 200 });
-    } catch (error) {
+    } catch (_error) {
         return NextResponse.json({ error: 'Failed to fetch universities' }, { status: 500 });
     }
 }
@@ -509,7 +509,7 @@ export async function GET_REGIONS(request: NextRequest) {
             select: { id: true, name: true }
         });
         return NextResponse.json(regions, { status: 200 });
-    } catch (error) {
+    } catch (_error) {
         return NextResponse.json({ error: 'Failed to fetch regions' }, { status: 500 });
     }
 }

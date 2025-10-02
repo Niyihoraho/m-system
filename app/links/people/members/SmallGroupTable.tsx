@@ -4,7 +4,7 @@ import { Table, TableHeader, TableRow, TableCell, TableBody, TableHead } from "@
 import { useState, useMemo, useEffect } from "react";
 import { Search, RefreshCw, Users, Mail, Phone, Calendar, MapPin, Building2, Church, GraduationCap } from 'lucide-react';
 import axios from "axios";
-import Link from "next/link";
+
 import { useRouter } from "next/navigation";
 
 // Interface for the Member data structure

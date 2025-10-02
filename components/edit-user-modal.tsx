@@ -94,10 +94,10 @@ export function EditUserModal({ user, onUserUpdated, isOpen, onClose }: EditUser
       updateUserSchema.parse(formData);
       setErrors({});
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       const newErrors: Record<string, string> = {};
-      if (error.errors) {
-        error.errors.forEach((err: any) => {
+      if (error && typeof error === 'object' && 'errors' in error && Array.isArray(error.errors)) {
+        error.errors.forEach((err: { path: string[]; message: string }) => {
           newErrors[err.path[0]] = err.message;
         });
       }
@@ -130,7 +130,7 @@ export function EditUserModal({ user, onUserUpdated, isOpen, onClose }: EditUser
       if (!response.ok) {
         if (data.details && Array.isArray(data.details)) {
           const newErrors: Record<string, string> = {};
-          data.details.forEach((detail: any) => {
+          data.details.forEach((detail: { path: string[]; message: string }) => {
             newErrors[detail.path[0]] = detail.message;
           });
           setErrors(newErrors);
