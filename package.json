@@ -12,7 +12,6 @@
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "type-check": "tsc --noEmit",
-    "check-circular": "madge --circular --extensions ts,tsx,js,jsx .",
     "prepare-deploy": "node prepare-deployment.js",
     "build-for-deploy": "npm run build && npm run prepare-deploy",
     "deploy": "chmod +x deploy.sh && ./deploy.sh"

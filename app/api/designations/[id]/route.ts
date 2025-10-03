@@ -5,11 +5,10 @@ import { designationSchema } from '@/app/api/validation/designation';
 // GET single designation by ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const resolvedParams = await params;
-    const id = parseInt(resolvedParams.id);
+    const id = parseInt(params.id);
     
     if (isNaN(id)) {
       return NextResponse.json(

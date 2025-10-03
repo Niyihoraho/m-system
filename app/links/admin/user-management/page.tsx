@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import axios from 'axios';
@@ -92,7 +92,7 @@ export default function UserManagementPage() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
 
   // Fetch users from API
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -104,12 +104,12 @@ export default function UserManagementPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, itemsPerPage, searchTerm]);
 
   // Load users on component mount and when search/page changes
   useEffect(() => {
     fetchUsers();
-  }, [currentPage, searchTerm, fetchUsers]);
+  }, [fetchUsers]);
 
   // Open delete confirmation modal
   const openDeleteModal = (userId: string, userName: string) => {

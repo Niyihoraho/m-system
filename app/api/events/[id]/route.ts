@@ -5,10 +5,9 @@ import { auth } from "@/lib/auth";
 import { getUserScope } from "@/lib/rls";
 
 // GET single event
-export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
     try {
-        const resolvedParams = await params;
-        const eventId = parseInt(resolvedParams.id);
+        const eventId = parseInt(params.id);
         if (isNaN(eventId)) {
             return NextResponse.json({ error: "Invalid event ID" }, { status: 400 });
         }
