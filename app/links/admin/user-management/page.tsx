@@ -91,11 +91,6 @@ export default function UserManagementPage() {
   const [deleting, setDeleting] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
 
-  // Load users on component mount and when search/page changes
-  useEffect(() => {
-    fetchUsers();
-  }, [currentPage, searchTerm, fetchUsers]);
-
   // Fetch users from API
   const fetchUsers = async () => {
     try {
@@ -110,6 +105,11 @@ export default function UserManagementPage() {
       setLoading(false);
     }
   };
+
+  // Load users on component mount and when search/page changes
+  useEffect(() => {
+    fetchUsers();
+  }, [currentPage, searchTerm, fetchUsers]);
 
   // Open delete confirmation modal
   const openDeleteModal = (userId: string, userName: string) => {

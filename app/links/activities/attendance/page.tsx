@@ -119,6 +119,120 @@ export default function AttendancePage() {
     { value: "excused", label: "Excused" },
   ];
 
+  // Function declarations
+  const fetchEvents = async () => {
+    try {
+      let url = '/api/events';
+      const params = new URLSearchParams();
+      
+      // Add scope-based filters for events
+      if (regionId) params.append("regionId", regionId);
+      if (universityId) params.append("universityId", universityId);
+      if (smallGroupId) params.append("smallGroupId", smallGroupId);
+      if (alumniGroupId) params.append("alumniGroupId", alumniGroupId);
+      
+      if (params.toString()) {
+        url += "?" + params.toString();
+      }
+      
+      const response = await axios.get(url);
+      setEvents(response.data);
+    } catch (error) {
+      console.error('Error fetching events:', error);
+    }
+  };
+
+  const fetchRegions = async () => {
+    try {
+      const response = await axios.get('/api/regions');
+      setRegions(response.data);
+    } catch (error) {
+      console.error('Error fetching regions:', error);
+    }
+  };
+
+  const fetchUniversities = async (regionId: number) => {
+    try {
+      const response = await axios.get(`/api/universities?regionId=${regionId}`);
+      setUniversities(response.data);
+    } catch (error) {
+      console.error('Error fetching universities:', error);
+    }
+  };
+
+  const fetchSmallGroups = async (universityId: number) => {
+    try {
+      const response = await axios.get(`/api/small-groups?universityId=${universityId}`);
+      setSmallGroups(response.data);
+    } catch (error) {
+      console.error('Error fetching small groups:', error);
+    }
+  };
+
+  const fetchAlumniGroups = async (regionId: number) => {
+    try {
+      const response = await axios.get(`/api/alumni-groups?regionId=${regionId}`);
+      setAlumniGroups(response.data);
+    } catch (error) {
+      console.error('Error fetching alumni groups:', error);
+    }
+  };
+
+  const fetchMembers = async () => {
+    try {
+      let url = '/api/members';
+      const params = new URLSearchParams();
+      
+      // Add scope-based filters for members
+      if (regionId) params.append("regionId", regionId);
+      if (universityId) params.append("universityId", universityId);
+      if (smallGroupId) params.append("smallGroupId", smallGroupId);
+      if (alumniGroupId) params.append("alumniGroupId", alumniGroupId);
+      
+      if (params.toString()) {
+        url += "?" + params.toString();
+      }
+      
+      const response = await axios.get(url);
+      setMembers(response.data);
+    } catch (error) {
+      console.error('Error fetching members:', error);
+      setMemberError('Failed to fetch members');
+    }
+  };
+
+  const fetchAttendanceRecords = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      let url = '/api/attendance';
+      const params = new URLSearchParams();
+      
+      // Add filters
+      if (eventFilter) params.append("eventId", eventFilter);
+      if (statusFilter) params.append("status", statusFilter);
+      if (dateFrom) params.append("dateFrom", dateFrom);
+      if (dateTo) params.append("dateTo", dateTo);
+      if (selectedRegionFilter) params.append("regionId", selectedRegionFilter);
+      if (selectedUniversityFilter) params.append("universityId", selectedUniversityFilter);
+      if (selectedSmallGroupFilter) params.append("smallGroupId", selectedSmallGroupFilter);
+      if (selectedAlumniGroupFilter) params.append("alumniGroupId", selectedAlumniGroupFilter);
+      
+      if (params.toString()) {
+        url += "?" + params.toString();
+      }
+      
+      const response = await axios.get(url);
+      setAttendanceRecords(response.data);
+    } catch (error) {
+      console.error('Error fetching attendance records:', error);
+      setError('Failed to fetch attendance records');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Set default scope values when user scope is loaded
   useEffect(() => {
     if (userScope && !scopeLoading) {
@@ -182,141 +296,6 @@ export default function AttendancePage() {
     }
   }, [activeTab, eventFilter, statusFilter, dateFrom, dateTo, regionId, universityId, smallGroupId, alumniGroupId, selectedRegionFilter, selectedUniversityFilter, selectedSmallGroupFilter, selectedAlumniGroupFilter, fetchAttendanceRecords]);
 
-  const fetchEvents = async () => {
-    try {
-      let url = '/api/events';
-      const params = new URLSearchParams();
-      
-      // Add scope-based filters for events
-      if (regionId) params.append("regionId", regionId);
-      if (universityId) params.append("universityId", universityId);
-      if (smallGroupId) params.append("smallGroupId", smallGroupId);
-      if (alumniGroupId) params.append("alumniGroupId", alumniGroupId);
-      
-      if (params.toString()) {
-        url += "?" + params.toString();
-      }
-      
-      const response = await axios.get(url);
-      setEvents(response.data);
-    } catch (error) {
-      console.error('Error fetching events:', error);
-    }
-  };
-
-  const fetchRegions = async () => {
-    try {
-      const response = await axios.get('/api/regions');
-      setRegions(response.data);
-    } catch (error) {
-      console.error('Error fetching regions:', error);
-    }
-  };
-
-  const fetchUniversities = async (regionId: number) => {
-    try {
-      const response = await axios.get(`/api/universities?regionId=${regionId}`);
-      setUniversities(response.data);
-    } catch (error) {
-      console.error('Error fetching universities:', error);
-    }
-  };
-
-  const fetchSmallGroups = async (universityId: number) => {
-    try {
-      const response = await axios.get(`/api/small-groups?universityId=${universityId}`);
-      setSmallGroups(response.data);
-    } catch (error) {
-      console.error('Error fetching small groups:', error);
-    }
-  };
-
-  const fetchAlumniGroups = async (regionId: number) => {
-    try {
-      const response = await axios.get(`/api/alumni-small-groups?regionId=${regionId}`);
-      setAlumniGroups(response.data);
-    } catch (error) {
-      console.error('Error fetching alumni groups:', error);
-    }
-  };
-
-  const fetchMembers = async () => {
-    setIsLoadingMembers(true);
-    setMembers([]);
-    setAttendance({});
-    setMemberError(null);
-    
-    try {
-      let url = "/api/members";
-      const params = new URLSearchParams();
-      
-      // Add scope-based filters for members
-      if (smallGroupId) {
-        params.append("smallGroupId", smallGroupId);
-      } else if (alumniGroupId) {
-        params.append("alumniGroupId", alumniGroupId);
-      } else if (universityId) {
-        params.append("universityId", universityId);
-      } else if (regionId) {
-        params.append("regionId", regionId);
-      }
-      
-      if (params.toString()) {
-        url += "?" + params.toString();
-      }
-      
-      const response = await axios.get(url);
-      const membersData = response.data.members || response.data;
-      
-      if (Array.isArray(membersData)) {
-        setMembers(membersData);
-        // Default all to present
-        const initialAttendance: { [memberId: string]: string } = {};
-        membersData.forEach((m: Member) => {
-          initialAttendance[m.id] = "present";
-        });
-        setAttendance(initialAttendance);
-      }
-    } catch (error) {
-      console.error('Error fetching members:', error);
-      setMemberError("Failed to load members");
-    } finally {
-      setIsLoadingMembers(false);
-    }
-  };
-
-  const fetchAttendanceRecords = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const params = new URLSearchParams();
-      if (eventFilter) params.append("eventId", eventFilter);
-      if (statusFilter) params.append("status", statusFilter);
-      if (dateFrom) params.append("dateFrom", dateFrom);
-      if (dateTo) params.append("dateTo", dateTo);
-      
-      // Add filter dropdown parameters
-      if (selectedRegionFilter) params.append("regionId", selectedRegionFilter);
-      if (selectedUniversityFilter) params.append("universityId", selectedUniversityFilter);
-      if (selectedSmallGroupFilter) params.append("smallGroupId", selectedSmallGroupFilter);
-      if (selectedAlumniGroupFilter) params.append("alumniGroupId", selectedAlumniGroupFilter);
-      
-      // Add scope-based filters for attendance records
-      if (regionId) params.append("regionId", regionId);
-      if (universityId) params.append("universityId", universityId);
-      if (smallGroupId) params.append("smallGroupId", smallGroupId);
-      if (alumniGroupId) params.append("alumniGroupId", alumniGroupId);
-      
-      const response = await axios.get(`/api/attendance?${params.toString()}`);
-      setAttendanceRecords(response.data);
-    } catch (err) {
-      console.error('Error fetching attendance records:', err);
-      setError('Failed to fetch attendance records. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleScopeChange = (scope: {
     regionId?: string;

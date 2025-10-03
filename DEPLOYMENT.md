@@ -7,7 +7,6 @@
 - package.json
 - package-lock.json
 - next.config.ts
-- .env.example
 
 ## Commands to run on EC2 after upload:
 
