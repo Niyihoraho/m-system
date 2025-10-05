@@ -1,6 +1,6 @@
 'use client';
 
-import { Table, TableHeader, TableRow, TableCell, TableBody, TableHead } from "@/components/ui/ui copy/table";
+import { Table, TableHeader, TableRow, TableCell, TableBody, TableHead } from "@/components/ui/table";
 import { useState, useMemo, useEffect } from "react";
 import { Search, RefreshCw, Users, Mail, Phone, Calendar, MapPin, Building2, Church, GraduationCap } from 'lucide-react';
 import axios from "axios";
