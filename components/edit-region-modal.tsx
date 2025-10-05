@@ -1,10 +1,10 @@
 "use client"
 
 import * as React from "react"
-import { Button } from "@/components/ui/ui copy/button"
-import { Card, CardContent, CardHeader } from "@/components/ui/ui copy/card"
-import { Input } from "@/components/ui/ui copy/input"
-import { Label } from "@/components/ui/ui copy/label"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Sheet,
   SheetContent,
@@ -12,7 +12,7 @@ import {
   SheetHeader,
   SheetTitle,
   
-} from "@/components/ui/ui copy/sheet"
+} from "@/components/ui/sheet"
 import { Edit, MapPin } from "lucide-react"
 
 interface Region {

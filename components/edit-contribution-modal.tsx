@@ -1,18 +1,18 @@
 "use client"
 
 import * as React from "react"
-import { Button } from "@/components/ui/ui copy/button"
-import { Card, CardContent, CardHeader } from "@/components/ui/ui copy/card"
-import { Input } from "@/components/ui/ui copy/input"
-import { Label } from "@/components/ui/ui copy/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/ui copy/select"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from "@/components/ui/ui copy/sheet"
+} from "@/components/ui/sheet"
 import { Edit, DollarSign, User, CreditCard, Receipt } from "lucide-react"
 
 interface Member {

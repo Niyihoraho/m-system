@@ -1,12 +1,12 @@
 "use client"
 
 import * as React from "react"
-import { Button } from "@/components/ui/ui copy/button"
-import { Card, CardContent, CardHeader } from "@/components/ui/ui copy/card"
-import { Input } from "@/components/ui/ui copy/input"
-import { Label } from "@/components/ui/ui copy/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/ui copy/select"
-import { Checkbox } from "@/components/ui/ui copy/checkbox"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Sheet,
   SheetContent,
@@ -14,7 +14,7 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from "@/components/ui/ui copy/sheet"
+} from "@/components/ui/sheet"
 import { Plus, Calendar, MapPin, Building2, Users, GraduationCap, Activity } from "lucide-react"
 import { useUserScope } from "@/hooks/use-user-scope"
 

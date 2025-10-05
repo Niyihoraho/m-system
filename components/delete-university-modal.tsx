@@ -1,14 +1,14 @@
 "use client"
 
 import * as React from "react"
-import { Button } from "@/components/ui/ui copy/button"
+import { Button } from "@/components/ui/button"
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from "@/components/ui/ui copy/sheet"
+} from "@/components/ui/sheet"
 import { Trash2, AlertTriangle } from "lucide-react"
 
 interface DeleteUniversityModalProps {

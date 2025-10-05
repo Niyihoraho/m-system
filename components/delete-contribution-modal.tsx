@@ -1,15 +1,15 @@
 "use client"
 
 import * as React from "react"
-import { Button } from "@/components/ui/ui copy/button"
-import { Card, CardContent, CardHeader } from "@/components/ui/ui copy/card"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from "@/components/ui/ui copy/sheet"
+} from "@/components/ui/sheet"
 import { AlertTriangle, Trash2, X, DollarSign } from "lucide-react"
 
 interface DeleteContributionModalProps {
