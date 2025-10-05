@@ -53,8 +53,6 @@ const nextConfig: NextConfig = {
     // number of pages that should be kept simultaneously without being disposed
     pagesBufferLength: 2,
   },
-
-  // Output configuration for better caching
   output: 'standalone',
   
   // Webpack optimizations
