@@ -55,7 +55,7 @@ const nextConfig: NextConfig = {
   },
 
   // Output configuration for better caching
-  output: 'standalone',
+  // output: 'standalone', // Commented out to fix production SSR issues
   
   // Webpack optimizations
   webpack: (config, { dev, isServer }) => {
