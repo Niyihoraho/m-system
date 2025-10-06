@@ -191,6 +191,16 @@
       "swcTraceProfiling": false,
       "forceSwcTransforms": false,
       "largePageDataBytes": 128000,
+      "turbo": {
+        "rules": {
+          "*.svg": {
+            "loaders": [
+              "@svgr/webpack"
+            ],
+            "as": "*.js"
+          }
+        }
+      },
       "typedEnv": false,
       "parallelServerCompiles": false,
       "parallelServerBuildTraces": false,
@@ -222,6 +232,8 @@
         "@radix-ui/react-select",
         "@radix-ui/react-dialog",
         "lucide-react",
+        "axios",
+        "jspdf",
         "date-fns",
         "lodash-es",
         "ramda",
