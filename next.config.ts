@@ -18,8 +18,19 @@ const nextConfig: NextConfig = {
       '@radix-ui/react-collapsible',
       '@radix-ui/react-select',
       '@radix-ui/react-dialog',
-      'lucide-react'
+      'lucide-react',
+      'axios',
+      'jspdf'
     ],
+    // Enable faster builds
+    turbo: {
+      rules: {
+        '*.svg': {
+          loaders: ['@svgr/webpack'],
+          as: '*.js',
+        },
+      },
+    },
   },
 
   // Turbopack configuration
