@@ -13,10 +13,12 @@
 # testing
 /coverage
 
-# next.js - REMOVED /.next/ to include build files
-# /out/
+# next.js
+/.next/
+/out/
 
-# production - REMOVED /build to include build files
+# production
+/build
 
 # misc
 .DS_Store
