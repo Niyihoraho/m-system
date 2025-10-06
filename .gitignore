@@ -14,7 +14,7 @@
 /coverage
 
 # next.js - REMOVED /.next/ to include build files
-/out/
+# /out/
 
 # production - REMOVED /build to include build files
 
