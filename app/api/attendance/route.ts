@@ -15,25 +15,49 @@ export async function GET(request: NextRequest) {
         const where: Record<string, unknown> = {};
         
         // Event and status filters
-        if (searchParams.has("eventId")) {
-            where.permanentEventId = Number(searchParams.get("eventId"));
+        if (searchParams.has("eventId") && searchParams.get("eventId") !== "all") {
+            const eventId = Number(searchParams.get("eventId"));
+            where.OR = [
+                { permanentEventId: eventId },
+                { trainingId: eventId }
+            ];
         }
-        if (searchParams.has("status")) {
+        if (searchParams.has("status") && searchParams.get("status") !== "all") {
             where.status = searchParams.get("status");
         }
         
-        // Date filters
-        if (searchParams.has("dateFrom") || searchParams.has("dateTo")) {
+        // Enhanced date filters with professional options
+        if (searchParams.has("dateFrom") || searchParams.has("dateTo") || searchParams.has("dateRange")) {
             where.recordedAt = {};
-            if (searchParams.has("dateFrom") && searchParams.get("dateFrom")) {
-                const dateFrom = new Date(searchParams.get("dateFrom")!);
-                dateFrom.setHours(0, 0, 0, 0);
-                where.recordedAt.gte = dateFrom;
-            }
-            if (searchParams.has("dateTo") && searchParams.get("dateTo")) {
-                const dateTo = new Date(searchParams.get("dateTo")!);
-                dateTo.setHours(23, 59, 59, 999);
-                where.recordedAt.lte = dateTo;
+            
+            // Handle predefined date ranges
+            if (searchParams.has("dateRange") && searchParams.get("dateRange") !== "all") {
+                const dateRange = searchParams.get("dateRange");
+                const { dateFrom, dateTo } = getDateRangeFromPredefined(dateRange!);
+                
+                if (dateFrom) {
+                    const fromDate = new Date(dateFrom);
+                    fromDate.setHours(0, 0, 0, 0);
+                    where.recordedAt.gte = fromDate;
+                }
+                
+                if (dateTo) {
+                    const toDate = new Date(dateTo);
+                    toDate.setHours(23, 59, 59, 999);
+                    where.recordedAt.lte = toDate;
+                }
+            } else {
+                // Handle custom date range
+                if (searchParams.has("dateFrom") && searchParams.get("dateFrom")) {
+                    const dateFrom = new Date(searchParams.get("dateFrom")!);
+                    dateFrom.setHours(0, 0, 0, 0);
+                    where.recordedAt.gte = dateFrom;
+                }
+                if (searchParams.has("dateTo") && searchParams.get("dateTo")) {
+                    const dateTo = new Date(searchParams.get("dateTo")!);
+                    dateTo.setHours(23, 59, 59, 999);
+                    where.recordedAt.lte = dateTo;
+                }
             }
         }
         
@@ -43,46 +67,93 @@ export async function GET(request: NextRequest) {
         
         // Override with explicit filters for super admin
         if (userScope.scope === 'superadmin') {
-            const hasExplicitFilters = searchParams.has("regionId") || searchParams.has("universityId") || 
-                searchParams.has("smallGroupId") || searchParams.has("alumniGroupId");
+            const hasExplicitFilters = (searchParams.has("regionId") && searchParams.get("regionId") !== "" && searchParams.get("regionId") !== "all") || 
+                (searchParams.has("universityId") && searchParams.get("universityId") !== "" && searchParams.get("universityId") !== "all") || 
+                (searchParams.has("smallGroupId") && searchParams.get("smallGroupId") !== "" && searchParams.get("smallGroupId") !== "all") || 
+                (searchParams.has("alumniGroupId") && searchParams.get("alumniGroupId") !== "" && searchParams.get("alumniGroupId") !== "all");
             
             if (hasExplicitFilters) {
                 where.member = {};
                 
-                if (searchParams.has("regionId")) {
+                if (searchParams.has("regionId") && searchParams.get("regionId") !== "" && searchParams.get("regionId") !== "all") {
                     where.member.regionId = Number(searchParams.get("regionId"));
                 }
-                if (searchParams.has("universityId")) {
+                if (searchParams.has("universityId") && searchParams.get("universityId") !== "" && searchParams.get("universityId") !== "all") {
                     where.member.universityId = Number(searchParams.get("universityId"));
                 }
-                if (searchParams.has("smallGroupId")) {
+                if (searchParams.has("smallGroupId") && searchParams.get("smallGroupId") !== "" && searchParams.get("smallGroupId") !== "all") {
                     where.member.smallGroupId = Number(searchParams.get("smallGroupId"));
                 }
-                if (searchParams.has("alumniGroupId")) {
+                if (searchParams.has("alumniGroupId") && searchParams.get("alumniGroupId") !== "" && searchParams.get("alumniGroupId") !== "all") {
                     where.member.alumniGroupId = Number(searchParams.get("alumniGroupId"));
                 }
             }
         }
         
-        const attendance = await prisma.attendance.findMany({
-            where,
-            include: {
-                member: { 
-                    select: { 
-                        id: true, 
-                        firstname: true, 
-                        secondname: true,
-                        regionId: true,
-                        universityId: true,
-                        smallGroupId: true,
-                        alumniGroupId: true
-                    } 
+        // Check if date filters are applied
+        const hasDateFilters = searchParams.has("dateFrom") || searchParams.has("dateTo");
+        
+        let attendance;
+        
+        if (hasDateFilters) {
+            // If date filters are applied, show all records within the date range (no deduplication)
+            attendance = await prisma.attendance.findMany({
+                where,
+                include: {
+                    member: { 
+                        select: { 
+                            id: true, 
+                            firstname: true, 
+                            secondname: true,
+                            email: true,
+                            regionId: true,
+                            universityId: true,
+                            smallGroupId: true,
+                            alumniGroupId: true
+                        } 
+                    },
+                    permanentministryevent: { select: { id: true, name: true } },
+                    trainings: { select: { id: true, name: true } }
                 },
-                permanentministryevent: { select: { id: true, name: true } },
-                trainings: { select: { id: true, name: true } }
-            },
-            orderBy: { recordedAt: 'desc' }
-        });
+                orderBy: { recordedAt: 'desc' }
+            });
+        } else {
+            // If no date filters, deduplicate to show only latest attendance per member/event
+            const allAttendance = await prisma.attendance.findMany({
+                where,
+                include: {
+                    member: { 
+                        select: { 
+                            id: true, 
+                            firstname: true, 
+                            secondname: true,
+                            email: true,
+                            regionId: true,
+                            universityId: true,
+                            smallGroupId: true,
+                            alumniGroupId: true
+                        } 
+                    },
+                    permanentministryevent: { select: { id: true, name: true } },
+                    trainings: { select: { id: true, name: true } }
+                },
+                orderBy: { recordedAt: 'desc' }
+            });
+
+            // Deduplicate: Keep only the latest record for each member/event combination
+            const attendanceMap = new Map();
+            
+            for (const record of allAttendance) {
+                const key = `${record.memberId}-${record.permanentEventId || record.trainingId}`;
+                
+                if (!attendanceMap.has(key)) {
+                    attendanceMap.set(key, record);
+                }
+            }
+            
+            attendance = Array.from(attendanceMap.values());
+        }
+        
         return NextResponse.json(attendance, { status: 200 });
     } catch (error) {
         console.error("Error fetching attendance records:", error);
@@ -222,6 +293,12 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
     try {
+        // Get user scope for RLS
+        const userScope = await getUserScope();
+        if (!userScope) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
         const { searchParams } = new URL(request.url);
         const attendanceId = searchParams.get("id");
 
@@ -242,9 +319,12 @@ export async function PUT(request: NextRequest) {
             );
         }
 
-        // Check if attendance record exists
+        // Check if attendance record exists and user has access
         const existingAttendance = await prisma.attendance.findUnique({
-            where: { id: Number(attendanceId) }
+            where: { id: Number(attendanceId) },
+            include: {
+                member: { select: { regionId: true, universityId: true, smallGroupId: true, alumniGroupId: true } }
+            }
         });
 
         if (!existingAttendance) {
@@ -252,6 +332,17 @@ export async function PUT(request: NextRequest) {
                 { error: "Attendance record not found" },
                 { status: 404 }
             );
+        }
+
+        // Apply RLS check for attendance record access
+        const memberRLSConditions = getTableRLSConditions(userScope, 'member');
+        const hasMemberAccess = Object.keys(memberRLSConditions).every(key => {
+            if (memberRLSConditions[key] === null || memberRLSConditions[key] === undefined) return true;
+            return existingAttendance.member[key] === memberRLSConditions[key];
+        });
+
+        if (!hasMemberAccess) {
+            return NextResponse.json({ error: "Access denied to attendance record" }, { status: 403 });
         }
 
         const updatedAttendance = await prisma.attendance.update({
@@ -276,6 +367,12 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
     try {
+        // Get user scope for RLS
+        const userScope = await getUserScope();
+        if (!userScope) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
         const { searchParams } = new URL(request.url);
         const attendanceId = searchParams.get("id");
 
@@ -286,9 +383,12 @@ export async function DELETE(request: NextRequest) {
             );
         }
 
-        // Check if attendance record exists
+        // Check if attendance record exists and user has access
         const existingAttendance = await prisma.attendance.findUnique({
-            where: { id: Number(attendanceId) }
+            where: { id: Number(attendanceId) },
+            include: {
+                member: { select: { regionId: true, universityId: true, smallGroupId: true, alumniGroupId: true } }
+            }
         });
 
         if (!existingAttendance) {
@@ -296,6 +396,17 @@ export async function DELETE(request: NextRequest) {
                 { error: "Attendance record not found" },
                 { status: 404 }
             );
+        }
+
+        // Apply RLS check for attendance record access
+        const memberRLSConditions = getTableRLSConditions(userScope, 'member');
+        const hasMemberAccess = Object.keys(memberRLSConditions).every(key => {
+            if (memberRLSConditions[key] === null || memberRLSConditions[key] === undefined) return true;
+            return existingAttendance.member[key] === memberRLSConditions[key];
+        });
+
+        if (!hasMemberAccess) {
+            return NextResponse.json({ error: "Access denied to attendance record" }, { status: 403 });
         }
 
         await prisma.attendance.delete({
@@ -310,4 +421,103 @@ export async function DELETE(request: NextRequest) {
         console.error("Error deleting attendance record:", error);
         return NextResponse.json({ error: 'Failed to delete attendance record' }, { status: 500 });
     }
+}
+
+/**
+ * Get date range from predefined range identifier
+ */
+function getDateRangeFromPredefined(rangeId: string): { dateFrom: string | null; dateTo: string | null } {
+    const now = new Date();
+    // Get today's date in YYYY-MM-DD format to match database dates
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    
+    switch (rangeId) {
+        case 'today':
+            return {
+                dateFrom: todayStr,
+                dateTo: todayStr
+            };
+        case 'yesterday':
+            const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+            const yesterdayStr = yesterday.toISOString().split('T')[0];
+            return {
+                dateFrom: yesterdayStr,
+                dateTo: yesterdayStr
+            };
+        case 'last7days':
+            const last7Days = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000);
+            return {
+                dateFrom: last7Days.toISOString().split('T')[0],
+                dateTo: todayStr
+            };
+        case 'last14days':
+            const last14Days = new Date(today.getTime() - 13 * 24 * 60 * 60 * 1000);
+            return {
+                dateFrom: last14Days.toISOString().split('T')[0],
+                dateTo: todayStr
+            };
+        case 'last30days':
+            const last30Days = new Date(today.getTime() - 29 * 24 * 60 * 60 * 1000);
+            return {
+                dateFrom: last30Days.toISOString().split('T')[0],
+                dateTo: todayStr
+            };
+        case 'thisweek':
+            return {
+                dateFrom: getWeekStart(today).toISOString().split('T')[0],
+                dateTo: getWeekEnd(today).toISOString().split('T')[0]
+            };
+        case 'lastweek':
+            const lastWeekStart = getWeekStart(new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000));
+            const lastWeekEnd = getWeekEnd(new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000));
+            return {
+                dateFrom: lastWeekStart.toISOString().split('T')[0],
+                dateTo: lastWeekEnd.toISOString().split('T')[0]
+            };
+        case 'thismonth':
+            return {
+                dateFrom: new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0],
+                dateTo: new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0]
+            };
+        case 'lastmonth':
+            return {
+                dateFrom: new Date(today.getFullYear(), today.getMonth() - 1, 1).toISOString().split('T')[0],
+                dateTo: new Date(today.getFullYear(), today.getMonth(), 0).toISOString().split('T')[0]
+            };
+        case 'last3months':
+            return {
+                dateFrom: new Date(today.getFullYear(), today.getMonth() - 3, 1).toISOString().split('T')[0],
+                dateTo: today.toISOString().split('T')[0]
+            };
+        case 'last6months':
+            return {
+                dateFrom: new Date(today.getFullYear(), today.getMonth() - 6, 1).toISOString().split('T')[0],
+                dateTo: today.toISOString().split('T')[0]
+            };
+        case 'thisyear':
+            return {
+                dateFrom: new Date(today.getFullYear(), 0, 1).toISOString().split('T')[0],
+                dateTo: new Date(today.getFullYear(), 11, 31).toISOString().split('T')[0]
+            };
+        default:
+            return { dateFrom: null, dateTo: null };
+    }
+}
+
+/**
+ * Get the start of the week (Monday) for a given date
+ */
+function getWeekStart(date: Date): Date {
+    const day = date.getDay();
+    const diff = date.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+    return new Date(date.setDate(diff));
+}
+
+/**
+ * Get the end of the week (Sunday) for a given date
+ */
+function getWeekEnd(date: Date): Date {
+    const weekStart = getWeekStart(new Date(date));
+    return new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000);
 }

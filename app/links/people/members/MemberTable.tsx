@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Search, RefreshCw, UserPlus, Edit, Trash2, Eye, Users, Calendar, MapPin, Phone, Mail, GraduationCap, Building2, Church } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AddMemberModal } from "@/components/add-member-modal";
 import { DeleteMemberModal } from "@/components/delete-member-modal";
 import { EditMemberModal } from "@/components/edit-member-modal";
@@ -88,6 +89,7 @@ export default function MemberTable({
   refreshKey 
 }: MemberTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(5);
 
@@ -163,6 +165,17 @@ export default function MemberTable({
   };
 
   const filteredMembers = members.filter(member => {
+    // Apply status filter first
+    if (statusFilter !== 'all') {
+      if (statusFilter === 'active' && member.status !== 'active') {
+        return false;
+      }
+      if (statusFilter === 'inactive' && member.status !== 'inactive') {
+        return false;
+      }
+    }
+    
+    // Apply search filter
     if (!searchTerm) return true;
     
     const searchLower = searchTerm.toLowerCase();
@@ -200,6 +213,11 @@ export default function MemberTable({
     setCurrentPage(1);
   };
 
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(value);
+    setCurrentPage(1);
+  };
+
   // Pagination handlers
   const goToPage = (page: number) => {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
@@ -228,6 +246,20 @@ export default function MemberTable({
               onChange={(e) => handleSearchChange(e.target.value)}
               className="w-full pl-10 pr-4 py-2 sm:py-2.5 bg-muted/30 border border-border/20 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary/50 focus:bg-muted/50 transition-all duration-200 text-foreground placeholder:text-muted-foreground text-sm sm:text-base"
             />
+          </div>
+
+          {/* Status Filter */}
+          <div className="flex items-center gap-2">
+            <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
+              <SelectTrigger className="h-11 w-40">
+                <SelectValue placeholder="All Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Refresh Button */}
@@ -306,7 +338,7 @@ export default function MemberTable({
               </thead>
               <tbody className="bg-card divide-y divide-border">
               {paginatedMembers.map((member) => (
-                <tr key={member.id} className="hover:bg-muted/50">
+                <tr key={member.id}>
                   <td className="px-3 sm:px-6 py-3 sm:py-4">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-8 w-8 sm:h-10 sm:w-10">

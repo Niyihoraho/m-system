@@ -4,7 +4,16 @@ import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { AppSidebar } from "@/components/app-sidebar"
+import { AppHeader } from "@/components/app-header"
 import { LogoutButton } from "@/components/logout-button"
+import { Shield, Building2, MapPin, Users, GraduationCap, Church, Activity, TrendingUp, Calendar, AlertCircle } from "lucide-react"
+import { AllowOnly } from '@/components/role-based-access'
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar"
+import { Separator } from "@/components/ui/separator"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -13,14 +22,6 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { Separator } from "@/components/ui/separator"
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar"
-import { Shield, Building2, MapPin, Users, GraduationCap, Church, Activity, TrendingUp, Calendar, AlertCircle } from "lucide-react"
-import { AllowOnly } from '@/components/role-based-access'
 
 // Interface for user scope data
 interface UserScope {
@@ -248,40 +249,12 @@ export default function Page() {
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-          <div className="flex items-center gap-2 px-4">
-            <SidebarTrigger className="-ml-1" />
-            <Separator
-              orientation="vertical"
-              className="mr-2 data-[orientation=vertical]:h-4"
-            />
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem className="hidden md:block">
-                  <BreadcrumbLink href="/dashboard">
-                    Dashboard
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator className="hidden md:block" />
-                <BreadcrumbItem>
-                  <BreadcrumbPage>Welcome</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-          </div>
-          <div className="ml-auto px-4 flex items-center gap-4">
-            {/* Scope Indicator */}
-            {!isLoadingScope && userScope && (
-              <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-muted/50 rounded-lg border border-border/20">
-                <ScopeIcon className={`w-4 h-4 ${scopeInfo.color}`} />
-                <span className="text-sm font-medium text-foreground">
-                  {scopeInfo.title}
-                </span>
-              </div>
-            )}
-            <LogoutButton />
-          </div>
-        </header>
+        <AppHeader 
+          breadcrumbs={[
+            { label: "Dashboard", href: "/dashboard" },
+            { label: "Welcome", isLast: true }
+          ]}
+        />
         <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
           {/* Welcome Section with User Scope */}
           <div className="bg-gradient-to-br from-card via-card to-muted/20 rounded-lg shadow-sm border border-border/50 p-4">

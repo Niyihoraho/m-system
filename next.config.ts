@@ -22,15 +22,19 @@ const nextConfig: NextConfig = {
       'axios',
       'jspdf'
     ],
-    // Enable faster builds
-    turbo: {
-      rules: {
-        '*.svg': {
-          loaders: ['@svgr/webpack'],
-          as: '*.js',
-        },
-      },
-    },
+  },
+
+  // CRITICAL: Include Prisma files in standalone output
+  outputFileTracingIncludes: {
+    '/api/**/*': [
+      './node_modules/.prisma/client/**/*',
+      './node_modules/@prisma/client/**/*',
+      './prisma/**/*',
+    ],
+    '/**/*': [
+      './node_modules/.prisma/client/**/*',
+      './node_modules/@prisma/client/**/*',
+    ],
   },
 
   // Turbopack configuration

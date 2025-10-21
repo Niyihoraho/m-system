@@ -19,11 +19,21 @@ export async function GET(request: NextRequest) {
         const alumniGroupId = searchParams.get("alumniGroupId");
         const dateFrom = searchParams.get("dateFrom");
         const dateTo = searchParams.get("dateTo");
+        const selectedDate = searchParams.get("selectedDate");
         
         // Engagement type filters
         const _engagementType = searchParams.get("engagementType");
         const selectedEvent = searchParams.get("selectedEvent");
         const selectedDesignation = searchParams.get("selectedDesignation");
+        
+        // Debug: Log the received parameters
+        console.log('🔍 Analytics API Debug:', {
+            selectedEvent,
+            selectedDesignation,
+            selectedDate,
+            dateFrom,
+            dateTo
+        });
 
         // Build the filter object with RLS conditions
         const rlsConditions = generateRLSConditions(userScope);
@@ -59,32 +69,40 @@ export async function GET(request: NextRequest) {
             where.alumniGroupId = requestedAlumniGroupId;
         }
 
-        // Apply date filters
-        if (dateFrom || dateTo) {
-            where.createdAt = {};
-            if (dateFrom) {
-                const fromDate = new Date(dateFrom);
-                fromDate.setHours(0, 0, 0, 0);
-                where.createdAt.gte = fromDate;
-            }
-            if (dateTo) {
-                const toDate = new Date(dateTo);
-                toDate.setHours(23, 59, 59, 999);
-                where.createdAt.lte = toDate;
-            }
+        // Convert selectedDate to dateFrom/dateTo if provided
+        let finalDateFrom = dateFrom;
+        let finalDateTo = dateTo;
+        
+        if (selectedDate && !dateFrom && !dateTo) {
+            // If selectedDate is provided but no date range, use it as both from and to
+            finalDateFrom = selectedDate;
+            finalDateTo = selectedDate;
         }
 
+        // Apply date filters - Note: Date filtering is now handled in getEventAttendanceData
+        // Remove the incorrect createdAt filter that was filtering events by creation date
+        // instead of attendance by recorded date
+
         // Get event attendance data
-        const eventAttendanceData = await getEventAttendanceData(where, selectedEvent);
+        const eventAttendanceData = await getEventAttendanceData(where, selectedEvent, finalDateFrom, finalDateTo);
         
         // Get designation participation data
         const designationData = await getDesignationData(where, selectedDesignation);
         
         // Get monthly engagement trends
-        const monthlyTrends = await getMonthlyEngagementTrends(where, dateFrom, dateTo);
+        const monthlyTrends = await getMonthlyEngagementTrends(where, finalDateFrom, finalDateTo);
         
         // Get regional engagement data with hierarchical comparisons
-        const regionalEngagement = await getRegionalEngagementData(where, regionId, universityId);
+        console.log('🔍 Getting regional engagement with params:', {
+            where,
+            regionId,
+            universityId,
+            selectedEvent,
+            finalDateFrom,
+            finalDateTo,
+            userScope: userScope.scope
+        });
+        const regionalEngagement = await getRegionalEngagementData(where, regionId, universityId, selectedEvent, finalDateFrom, finalDateTo);
         
         // Get engagement type distribution
         const engagementTypeDistribution = await getEngagementTypeDistribution(where);
@@ -110,35 +128,38 @@ export async function GET(request: NextRequest) {
             eventEngagementLevels
         };
 
-        // Only add fallback data if absolutely no data exists in the database
+        // Always return real data - no fallback to mock data
+        // If no data exists, return zeros but keep the structure
         if (keyMetrics.totalEngagement === 0 && keyMetrics.eventParticipation === 0 && keyMetrics.designationParticipation === 0) {
-            // Check if there's any data at all in the database
-            const hasAnyData = await checkForAnyEngagementData(where);
-            
-            if (!hasAnyData) {
-                // Only use sample data if there's truly no data in the database
-                analytics.keyMetrics = {
-                    totalEngagement: 0,
-                    averageEngagementRate: 0,
-                    eventParticipation: 0,
-                    designationParticipation: 0,
-                    monthlyGrowth: 0
-                };
+            analytics.keyMetrics = {
+                totalEngagement: 0,
+                averageEngagementRate: 0,
+                eventParticipation: 0,
+                designationParticipation: 0,
+                monthlyGrowth: 0
+            };
 
-                analytics.engagementTrends = [];
-                analytics.engagementTypeDistribution = [
-                    { name: 'Events', value: 0, color: '#3B82F6', count: 0 },
-                    { name: 'Designations', value: 0, color: '#10B981', count: 0 }
-                ];
-                analytics.regionalEngagement = [];
-                analytics.eventEngagementLevels = [
-                    { name: 'High Engagement', value: 0, color: '#10B981', count: 0 },
-                    { name: 'Medium Engagement', value: 0, color: '#F59E0B', count: 0 },
-                    { name: 'Low Engagement', value: 0, color: '#EF4444', count: 0 }
-                ];
-            }
+            analytics.engagementTrends = [];
+            analytics.engagementTypeDistribution = [
+                { name: 'Events', value: 0, color: '#3B82F6', count: 0 },
+                { name: 'Designations', value: 0, color: '#10B981', count: 0 }
+            ];
+            analytics.eventEngagementLevels = [
+                { name: 'High Engagement', value: 0, color: '#10B981', count: 0 },
+                { name: 'Medium Engagement', value: 0, color: '#F59E0B', count: 0 },
+                { name: 'Low Engagement', value: 0, color: '#EF4444', count: 0 }
+            ];
         }
 
+        console.log('🔍 Final Analytics Response:', {
+            selectedEvent,
+            selectedDate,
+            keyMetrics: analytics.keyMetrics,
+            totalEvents: analytics.eventEngagementLevels?.reduce((sum, level) => sum + level.count, 0) || 0,
+            regionalEngagementLength: analytics.regionalEngagement?.length || 0,
+            regionalEngagement: analytics.regionalEngagement
+        });
+        
         return NextResponse.json(analytics, { status: 200 });
 
     } catch (error) {
@@ -148,22 +169,67 @@ export async function GET(request: NextRequest) {
 }
 
 // Helper function to get event attendance data
-async function getEventAttendanceData(where: Record<string, unknown>, selectedEvent?: string | null) {
+async function getEventAttendanceData(where: Record<string, unknown>, selectedEvent?: string | null, dateFrom?: string | null, dateTo?: string | null) {
     try {
-        const eventWhere = { ...where };
+        let eventWhere: Record<string, unknown>;
         
         // Filter by specific event if selected
         if (selectedEvent && selectedEvent !== 'all') {
-            eventWhere.id = Number(selectedEvent);
+            // When a specific event is selected, only filter by that event ID
+            eventWhere = { id: Number(selectedEvent) };
+            console.log('🔍 Event Filter Applied:', { selectedEvent, eventWhere });
+        } else {
+            // When no specific event is selected, use the general where clause
+            eventWhere = { ...where };
+            console.log('🔍 No Event Filter:', { eventWhere });
         }
+
+        // Add university ministry filter to only show relevant events
+        const universityMinistryFilter = {
+            OR: [
+                { name: { contains: 'Bible Study' } },
+                { name: { contains: 'Discipleship' } },
+                { name: { contains: 'Ministry' } },
+                { name: { contains: 'Fellowship' } },
+                { name: { contains: 'Prayer' } },
+                { name: { contains: 'Worship' } },
+                { name: { contains: 'Evangelism' } },
+                { name: { contains: 'Leadership' } },
+                { name: { contains: 'Training' } },
+                { name: { contains: 'Conference' } },
+                { name: { contains: 'Retreat' } },
+                { name: { contains: 'Seminar' } },
+                { name: { contains: 'Workshop' } },
+                { name: { contains: 'Cell Group' } },
+                { name: { contains: 'Small Group' } },
+                { name: { contains: 'Campus' } },
+                { name: { contains: 'University' } },
+                { name: { contains: 'Student' } },
+                { type: { in: ['bible_study', 'discipleship', 'evangelism', 'cell_meeting'] } }
+            ]
+        };
 
         // Get permanent ministry events with attendance
         const permanentEvents = await prisma.permanentministryevent.findMany({
-            where: eventWhere,
+            where: {
+                ...eventWhere,
+                // Only apply university ministry filter if no specific event is selected
+                ...(selectedEvent && selectedEvent !== 'all' ? {} : universityMinistryFilter)
+            },
             include: {
                 attendance: {
                     where: {
-                        status: 'present'
+                        status: 'present',
+                        ...(dateFrom && {
+                            recordedAt: {
+                                gte: new Date(dateFrom + 'T00:00:00.000Z'),
+                                lte: new Date((dateTo || dateFrom) + 'T23:59:59.999Z')
+                            }
+                        }),
+                        // Filter attendance by specific event if selected
+                        ...(selectedEvent && selectedEvent !== 'all' ? {
+                            permanentEventId: Number(selectedEvent)
+                        } : {})
                     },
                     include: {
                         member: {
@@ -188,7 +254,17 @@ async function getEventAttendanceData(where: Record<string, unknown>, selectedEv
             include: {
                 attendance: {
                     where: {
-                        status: 'present'
+                        status: 'present',
+                        ...(dateFrom && {
+                            recordedAt: {
+                                gte: new Date(dateFrom + 'T00:00:00.000Z'),
+                                lte: new Date((dateTo || dateFrom) + 'T23:59:59.999Z')
+                            }
+                        }),
+                        // Filter attendance by specific event if selected
+                        ...(selectedEvent && selectedEvent !== 'all' ? {
+                            trainingId: Number(selectedEvent)
+                        } : {})
                     },
                     include: {
                         member: {
@@ -210,12 +286,24 @@ async function getEventAttendanceData(where: Record<string, unknown>, selectedEv
         const totalAttendance = permanentEvents.reduce((sum, event) => sum + event.attendance.length, 0) +
                                trainingEvents.reduce((sum, event) => sum + event.attendance.length, 0);
 
-        return {
+        const result = {
             totalAttendance,
             permanentEvents: permanentEvents.length,
             trainingEvents: trainingEvents.length,
             events: [...permanentEvents, ...trainingEvents]
         };
+        
+        console.log('🔍 Event Attendance Data Result:', {
+            selectedEvent,
+            dateFrom,
+            dateTo,
+            totalAttendance: result.totalAttendance,
+            permanentEventsCount: result.permanentEvents,
+            trainingEventsCount: result.trainingEvents,
+            totalEventsCount: result.events.length
+        });
+        
+        return result;
     } catch (error) {
         console.error('Error fetching event attendance data:', error);
         return {
@@ -347,7 +435,7 @@ async function getMonthlyEngagementTrends(where: Record<string, unknown>, _dateF
 }
 
 // Helper function to get regional engagement data with hierarchical comparisons
-async function getRegionalEngagementData(where: Record<string, unknown>, regionId?: string | null, universityId?: string | null) {
+async function getRegionalEngagementData(where: Record<string, unknown>, regionId?: string | null, universityId?: string | null, selectedEvent?: string | null, dateFrom?: string | null, dateTo?: string | null) {
     try {
         const comparisonData = [];
 
@@ -376,7 +464,21 @@ async function getRegionalEngagementData(where: Record<string, unknown>, regionI
                             ...where,
                             regionId: Number(regionId),
                             universityId: university.id
-                        }
+                        },
+                        // Filter by specific event if selected
+                        ...(selectedEvent && selectedEvent !== 'all' ? {
+                            OR: [
+                                { permanentEventId: Number(selectedEvent) },
+                                { trainingId: Number(selectedEvent) }
+                            ]
+                        } : {}),
+                        // Filter by date if provided
+                        ...(dateFrom ? {
+                            recordedAt: {
+                                gte: new Date(dateFrom + 'T00:00:00.000Z'),
+                                lte: new Date((dateTo || dateFrom) + 'T23:59:59.999Z')
+                            }
+                        } : {})
                     }
                 });
 
@@ -429,7 +531,21 @@ async function getRegionalEngagementData(where: Record<string, unknown>, regionI
                             ...where,
                             universityId: Number(universityId),
                             smallGroupId: smallGroup.id
-                        }
+                        },
+                        // Filter by specific event if selected
+                        ...(selectedEvent && selectedEvent !== 'all' ? {
+                            OR: [
+                                { permanentEventId: Number(selectedEvent) },
+                                { trainingId: Number(selectedEvent) }
+                            ]
+                        } : {}),
+                        // Filter by date if provided
+                        ...(dateFrom ? {
+                            recordedAt: {
+                                gte: new Date(dateFrom + 'T00:00:00.000Z'),
+                                lte: new Date((dateTo || dateFrom) + 'T23:59:59.999Z')
+                            }
+                        } : {})
                     }
                 });
 
@@ -459,6 +575,7 @@ async function getRegionalEngagementData(where: Record<string, unknown>, regionI
         }
         // Default: show regional comparison
         else {
+            console.log('🔍 Getting regions with where clause:', where);
             const regions = await prisma.region.findMany({
                 where: where.regionId ? { id: where.regionId } : {},
                 include: {
@@ -467,18 +584,36 @@ async function getRegionalEngagementData(where: Record<string, unknown>, regionI
                     }
                 }
             });
+            console.log('🔍 Found regions:', regions.length, regions.map(r => ({ id: r.id, name: r.name, memberCount: r.member.length })));
 
             for (const region of regions) {
                 // Get event engagement for this region
-                const eventEngagement = await prisma.attendance.count({
-                    where: {
-                        status: 'present',
-                        member: {
-                            ...where,
-                            regionId: region.id
+                const attendanceWhere = {
+                    status: 'present',
+                    member: {
+                        ...where,
+                        regionId: region.id
+                    },
+                    // Filter by specific event if selected
+                    ...(selectedEvent && selectedEvent !== 'all' ? {
+                        OR: [
+                            { permanentEventId: Number(selectedEvent) },
+                            { trainingId: Number(selectedEvent) }
+                        ]
+                    } : {}),
+                    // Filter by date if provided
+                    ...(dateFrom ? {
+                        recordedAt: {
+                            gte: new Date(dateFrom + 'T00:00:00.000Z'),
+                            lte: new Date((dateTo || dateFrom) + 'T23:59:59.999Z')
                         }
-                    }
+                    } : {})
+                };
+                console.log('🔍 Region attendance query for', region.name, ':', attendanceWhere);
+                const eventEngagement = await prisma.attendance.count({
+                    where: attendanceWhere
                 });
+                console.log('🔍 Region', region.name, 'event engagement count:', eventEngagement);
 
                 // Get designation engagement for this region
                 const designationEngagement = await prisma.contribution.count({
@@ -682,9 +817,12 @@ async function checkForAnyEngagementData(where: Record<string, unknown>) {
             }
         });
 
-        // Check for any events
+        // Check for any university ministry events
         const eventCount = await prisma.permanentministryevent.count({
-            where: where
+            where: {
+                ...where,
+                ...universityMinistryFilter
+            }
         });
 
         // Check for any trainings

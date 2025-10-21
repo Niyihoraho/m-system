@@ -70,21 +70,21 @@ export async function GET(request: NextRequest) {
         }
         
         // Apply RLS conditions first
-        const rlsConditions = getTableRLSConditions(userScope, 'permanentministryevent');
-        where = { ...where, ...rlsConditions };
+        const initialRlsConditions = getTableRLSConditions(userScope, 'permanentministryevent');
+        where = { ...where, ...initialRlsConditions };
         
         // Apply explicit filters if provided (these override RLS for super admin)
         if (userScope.scope === 'superadmin') {
-            if (regionId) {
+            if (regionId && regionId !== "") {
                 where.regionId = Number(regionId);
             }
-            if (universityId) {
+            if (universityId && universityId !== "") {
                 where.universityId = Number(universityId);
             }
-            if (smallGroupId) {
+            if (smallGroupId && smallGroupId !== "") {
                 where.smallGroupId = Number(smallGroupId);
             }
-            if (alumniGroupId) {
+            if (alumniGroupId && alumniGroupId !== "") {
                 where.alumniGroupId = Number(alumniGroupId);
             }
         }
@@ -92,8 +92,37 @@ export async function GET(request: NextRequest) {
             where.type = type;
         }
         
+        // Add university ministry filter to only show relevant events
+        const universityMinistryFilter = {
+            OR: [
+                { name: { contains: 'Bible Study' } },
+                { name: { contains: 'Discipleship' } },
+                { name: { contains: 'Ministry' } },
+                { name: { contains: 'Fellowship' } },
+                { name: { contains: 'Prayer' } },
+                { name: { contains: 'Worship' } },
+                { name: { contains: 'Evangelism' } },
+                { name: { contains: 'Leadership' } },
+                { name: { contains: 'Training' } },
+                { name: { contains: 'Conference' } },
+                { name: { contains: 'Retreat' } },
+                { name: { contains: 'Seminar' } },
+                { name: { contains: 'Workshop' } },
+                { name: { contains: 'Cell Group' } },
+                { name: { contains: 'Small Group' } },
+                { name: { contains: 'Campus' } },
+                { name: { contains: 'University' } },
+                { name: { contains: 'Student' } },
+                { type: { in: ['bible_study', 'discipleship', 'evangelism', 'cell_meeting'] } }
+            ]
+        };
+
         const events = await prisma.permanentministryevent.findMany({
-            where,
+            where: {
+                ...where,
+                ...universityMinistryFilter,
+                isActive: true  // Only return active events for the filter dropdown
+            },
             include: { 
                 region: { select: { id: true, name: true } },
                 university: { select: { id: true, name: true } },
@@ -103,8 +132,17 @@ export async function GET(request: NextRequest) {
             orderBy: { createdAt: 'desc' }
         });
         
+        // Apply RLS conditions for non-superadmin users
+        const postQueryRlsConditions = getTableRLSConditions(userScope, 'permanentministryevent');
+        const filteredEvents = events.filter(event => {
+            return Object.keys(postQueryRlsConditions).every(key => {
+                if (postQueryRlsConditions[key] === null || postQueryRlsConditions[key] === undefined) return true;
+                return event[key] === postQueryRlsConditions[key];
+            });
+        });
+        
         // Transform the data to match the frontend interface (camelCase)
-        const transformedEvents = events.map(event => ({
+        const transformedEvents = filteredEvents.map(event => ({
             ...event,
             smallGroup: event.smallgroup,
             alumniGroup: event.alumnismallgroup
@@ -155,9 +193,9 @@ export async function POST(request: NextRequest) {
 
         // Auto-fill scope fields based on user scope if not provided
         let finalRegionId = regionId;
-        let finalUniversityId = universityId;
-        let finalSmallGroupId = smallGroupId;
-        let finalAlumniGroupId = alumniGroupId;
+        let finalUniversityId = _universityId;
+        let finalSmallGroupId = _smallGroupId;
+        let finalAlumniGroupId = _alumniGroupId;
 
         // For non-superadmin users, use their scope IDs if fields are not provided
         if (userScope.scope !== 'superadmin') {
@@ -361,6 +399,12 @@ export async function PUT(request: NextRequest) {
             );
         }
 
+        // Set final values for scope fields
+        let finalRegionId = regionId;
+        let finalUniversityId = _universityId;
+        let finalSmallGroupId = _smallGroupId;
+        let finalAlumniGroupId = _alumniGroupId;
+
         // Verify region exists
         const region = await prisma.region.findUnique({
             where: { id: Number(finalRegionId) }
@@ -443,6 +487,9 @@ export async function PUT(request: NextRequest) {
             }
         }
 
+        // Check if status is changing from active to inactive
+        const statusChanged = existingEvent.isActive !== (isActive ?? true);
+        
         const updatedEvent = await prisma.permanentministryevent.update({
             where: { id: Number(eventId) },
             data: {
@@ -453,6 +500,7 @@ export async function PUT(request: NextRequest) {
                 smallGroupId: finalSmallGroupId ? Number(finalSmallGroupId) : null,
                 alumniGroupId: finalAlumniGroupId ? Number(finalAlumniGroupId) : null,
                 isActive: isActive ?? true,
+                // Update timestamp when status changes or any field changes
                 updatedAt: new Date()
             },
             include: {

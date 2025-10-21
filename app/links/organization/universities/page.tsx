@@ -254,7 +254,7 @@ export default function UniversitiesPage() {
                     </thead>
                     <tbody className="bg-card divide-y divide-border">
                     {filteredUniversities.map((university) => (
-                      <tr key={university.id} className="hover:bg-muted/50">
+                      <tr key={university.id}>
                         <td className="px-3 sm:px-6 py-3 sm:py-4 text-sm font-medium text-foreground">
                           {university.id}
                         </td>

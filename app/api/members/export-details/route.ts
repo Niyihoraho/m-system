@@ -59,26 +59,22 @@ export async function GET(request: NextRequest) {
     }
     if (profession && profession !== 'all') {
       where.professionalism = {
-        contains: profession,
-        mode: 'insensitive'
+        contains: profession
       };
     }
     if (faculty && faculty !== 'all') {
       where.faculty = {
-        contains: faculty,
-        mode: 'insensitive'
+        contains: faculty
       };
     }
     if (placeOfBirthProvince && placeOfBirthProvince !== 'all') {
       where.placeOfBirthProvince = {
-        contains: placeOfBirthProvince,
-        mode: 'insensitive'
+        contains: placeOfBirthProvince
       };
     }
     if (placeOfBirthDistrict && placeOfBirthDistrict !== 'all') {
       where.placeOfBirthDistrict = {
-        contains: placeOfBirthDistrict,
-        mode: 'insensitive'
+        contains: placeOfBirthDistrict
       };
     }
     if (graduationYear && graduationYear !== 'all') {

@@ -1,6 +1,7 @@
 'use client';
 
 import { Table, TableHeader, TableRow, TableCell, TableBody, TableHead } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useMemo, useEffect } from "react";
 import { Search, RefreshCw, Users, Mail, Phone, Calendar, MapPin, Building2, Church, GraduationCap } from 'lucide-react';
 import axios from "axios";
@@ -54,6 +55,7 @@ export default function SmallGroupTable({ refreshKey }: SmallGroupTableProps) {
   // --- Hooks ---
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [members, setMembers] = useState<Member[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -97,11 +99,28 @@ export default function SmallGroupTable({ refreshKey }: SmallGroupTableProps) {
   // --- Search and Filter Logic ---
   const filteredMembers = useMemo(() => {
     if (!members) return [];
-    if (!searchTerm) return members;
+
+    let filtered = members;
+
+    // Apply status filter first
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(member => {
+        if (statusFilter === 'active' && member.status !== 'active') {
+          return false;
+        }
+        if (statusFilter === 'inactive' && member.status !== 'inactive') {
+          return false;
+        }
+        return true;
+      });
+    }
+
+    // Apply search filter
+    if (!searchTerm) return filtered;
 
     const searchLower = searchTerm.toLowerCase();
 
-    return members.filter(member => {
+    return filtered.filter(member => {
       const searchableContent = [
         member.firstname,
         member.secondname,
@@ -116,7 +135,7 @@ export default function SmallGroupTable({ refreshKey }: SmallGroupTableProps) {
 
       return searchableContent.includes(searchLower);
     });
-  }, [members, searchTerm]);
+  }, [members, searchTerm, statusFilter]);
 
   // --- Pagination Logic ---
   const totalPages = Math.ceil(filteredMembers.length / itemsPerPage);
@@ -127,6 +146,12 @@ export default function SmallGroupTable({ refreshKey }: SmallGroupTableProps) {
   // Reset to first page when search term changes
   const handleSearchChange = (value: string) => {
     setSearchTerm(value);
+    setCurrentPage(1);
+  };
+
+  // Reset to first page when status filter changes
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(value);
     setCurrentPage(1);
   };
 
@@ -221,6 +246,20 @@ export default function SmallGroupTable({ refreshKey }: SmallGroupTableProps) {
             />
           </div>
 
+          {/* Status Filter */}
+          <div className="flex items-center gap-2">
+            <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
+              <SelectTrigger className="h-11 w-40">
+                <SelectValue placeholder="All Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Refresh Button */}
           <button 
             onClick={fetchMembers}
@@ -283,7 +322,7 @@ export default function SmallGroupTable({ refreshKey }: SmallGroupTableProps) {
                   {paginatedMembers.map((member: Member) => (
                     <TableRow
                       key={member.id}
-                      className="hover:bg-muted/50 cursor-pointer"
+                      className="cursor-pointer"
                       onClick={() => router.push(`/people/members/${member.id}`)}
                     >
                       {/* Member Cell */}

@@ -27,8 +27,6 @@ interface Member {
   placeOfBirthProvince: string | null;
   placeOfBirthDistrict: string | null;
   placeOfBirthSector: string | null;
-  placeOfBirthCell: string | null;
-  placeOfBirthVillage: string | null;
   localChurch: string | null;
   email: string | null;
   phone: string | null;
@@ -74,8 +72,6 @@ export function EditMemberModal({ member, onMemberUpdated, isOpen, onClose }: Ed
     placeOfBirthProvince: "",
     placeOfBirthDistrict: "",
     placeOfBirthSector: "",
-    placeOfBirthCell: "",
-    placeOfBirthVillage: "",
     localChurch: "",
     email: "",
     phone: "",
@@ -95,8 +91,6 @@ export function EditMemberModal({ member, onMemberUpdated, isOpen, onClose }: Ed
   const [provinces, setProvinces] = React.useState<Array<{id: string, name: string}>>([])
   const [districts, setDistricts] = React.useState<Array<{id: string, name: string}>>([])
   const [sectors, setSectors] = React.useState<Array<{id: string, name: string}>>([])
-  const [cells, setCells] = React.useState<Array<{id: string, name: string}>>([])
-  const [villages, setVillages] = React.useState<Array<{id: string, name: string}>>([])
   const [loadingLocations, setLoadingLocations] = React.useState<{[key: string]: boolean}>({})
 
   // Small groups state
@@ -130,12 +124,6 @@ export function EditMemberModal({ member, onMemberUpdated, isOpen, onClose }: Ed
             break
           case 'sectors':
             setSectors(data)
-            break
-          case 'cells':
-            setCells(data)
-            break
-          case 'villages':
-            setVillages(data)
             break
         }
       }
@@ -248,8 +236,6 @@ export function EditMemberModal({ member, onMemberUpdated, isOpen, onClose }: Ed
         placeOfBirthProvince: member.placeOfBirthProvince || "",
         placeOfBirthDistrict: member.placeOfBirthDistrict || "",
         placeOfBirthSector: member.placeOfBirthSector || "",
-        placeOfBirthCell: member.placeOfBirthCell || "",
-        placeOfBirthVillage: member.placeOfBirthVillage || "",
         localChurch: member.localChurch || "",
         email: member.email || "",
         phone: member.phone || "",
@@ -327,13 +313,9 @@ export function EditMemberModal({ member, onMemberUpdated, isOpen, onClose }: Ed
         ...prev,
         placeOfBirthDistrict: "",
         placeOfBirthSector: "",
-        placeOfBirthCell: "",
-        placeOfBirthVillage: ""
       }))
       setDistricts([])
       setSectors([])
-      setCells([])
-      setVillages([])
       if (value) {
         fetchLocations('districts', value)
       }
@@ -342,36 +324,10 @@ export function EditMemberModal({ member, onMemberUpdated, isOpen, onClose }: Ed
       setFormData(prev => ({
         ...prev,
         placeOfBirthSector: "",
-        placeOfBirthCell: "",
-        placeOfBirthVillage: ""
       }))
       setSectors([])
-      setCells([])
-      setVillages([])
       if (value) {
         fetchLocations('sectors', value)
-      }
-    } else if (field === 'placeOfBirthSector') {
-      // Clear dependent fields and fetch cells
-      setFormData(prev => ({
-        ...prev,
-        placeOfBirthCell: "",
-        placeOfBirthVillage: ""
-      }))
-      setCells([])
-      setVillages([])
-      if (value) {
-        fetchLocations('cells', value)
-      }
-    } else if (field === 'placeOfBirthCell') {
-      // Clear dependent fields and fetch villages
-      setFormData(prev => ({
-        ...prev,
-        placeOfBirthVillage: ""
-      }))
-      setVillages([])
-      if (value) {
-        fetchLocations('villages', value)
       }
     }
   }
@@ -421,8 +377,6 @@ export function EditMemberModal({ member, onMemberUpdated, isOpen, onClose }: Ed
         placeOfBirthProvince: formData.placeOfBirthProvince || null,
         placeOfBirthDistrict: formData.placeOfBirthDistrict || null,
         placeOfBirthSector: formData.placeOfBirthSector || null,
-        placeOfBirthCell: formData.placeOfBirthCell || null,
-        placeOfBirthVillage: formData.placeOfBirthVillage || null,
         localChurch: formData.localChurch || null,
         email: formData.email || null,
         phone: formData.phone || null,
@@ -594,8 +548,6 @@ export function EditMemberModal({ member, onMemberUpdated, isOpen, onClose }: Ed
                         <SelectContent>
                           <SelectItem value="Single">Single</SelectItem>
                           <SelectItem value="Married">Married</SelectItem>
-                          <SelectItem value="Divorced">Divorced</SelectItem>
-                          <SelectItem value="Widowed">Widowed</SelectItem>
                         </SelectContent>
                       </Select>
                       {errors.maritalStatus && <p className="text-sm text-red-600">{errors.maritalStatus}</p>}
@@ -738,62 +690,8 @@ export function EditMemberModal({ member, onMemberUpdated, isOpen, onClose }: Ed
                       {errors.placeOfBirthSector && <p className="text-sm text-red-600">{errors.placeOfBirthSector}</p>}
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="placeOfBirthCell" className="text-sm font-medium">Cell</Label>
-                      <Select
-                        value={formData.placeOfBirthCell}
-                        onValueChange={(value) => handleInputChange("placeOfBirthCell", value)}
-                        disabled={!formData.placeOfBirthSector || cells.length === 0}
-                      >
-                        <SelectTrigger className="h-11">
-                          <SelectValue placeholder={
-                            loadingLocations.cells 
-                              ? "Loading cells..." 
-                              : !formData.placeOfBirthSector 
-                                ? "Select sector first" 
-                                : "Select cell"
-                          } />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {cells.map((cell) => (
-                            <SelectItem key={cell.id} value={cell.id}>
-                              {cell.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {errors.placeOfBirthCell && <p className="text-sm text-red-600">{errors.placeOfBirthCell}</p>}
-                    </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="placeOfBirthVillage" className="text-sm font-medium">Village</Label>
-                      <Select
-                        value={formData.placeOfBirthVillage}
-                        onValueChange={(value) => handleInputChange("placeOfBirthVillage", value)}
-                        disabled={!formData.placeOfBirthCell || villages.length === 0}
-                      >
-                        <SelectTrigger className="h-11">
-                          <SelectValue placeholder={
-                            loadingLocations.villages 
-                              ? "Loading villages..." 
-                              : !formData.placeOfBirthCell 
-                                ? "Select cell first" 
-                                : "Select village"
-                          } />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {villages.map((village) => (
-                            <SelectItem key={village.id} value={village.id}>
-                              {village.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {errors.placeOfBirthVillage && <p className="text-sm text-red-600">{errors.placeOfBirthVillage}</p>}
-                    </div>
-                  </div>
                 </div>
 
                 {/* Education & Professional Information */}
@@ -999,7 +897,7 @@ export function EditMemberModal({ member, onMemberUpdated, isOpen, onClose }: Ed
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {visibleFields.smallGroup && (
+                        {visibleFields.smallGroup && formData.type !== 'graduate' && (
                           <div className="space-y-2">
                             <Label htmlFor="smallGroupId" className="text-sm font-medium flex items-center gap-2">
                               <Users className="h-4 w-4" />
@@ -1031,7 +929,7 @@ export function EditMemberModal({ member, onMemberUpdated, isOpen, onClose }: Ed
                           </div>
                         )}
 
-                        {visibleFields.alumniGroup && (
+                        {visibleFields.alumniGroup && formData.type !== 'student' && (
                           <div className="space-y-2">
                             <Label htmlFor="alumniGroupId" className="text-sm font-medium flex items-center gap-2">
                               <GraduationCap className="h-4 w-4" />
@@ -1076,7 +974,7 @@ export function EditMemberModal({ member, onMemberUpdated, isOpen, onClose }: Ed
                       </div>
                       
                       {/* Show message if no fields are visible */}
-                      {!visibleFields.region && !visibleFields.university && !visibleFields.smallGroup && !visibleFields.alumniGroup && (
+                      {!visibleFields.region && !visibleFields.university && !(visibleFields.smallGroup && formData.type !== 'graduate') && !(visibleFields.alumniGroup && formData.type !== 'student') && (
                         <div className="text-center py-4">
                           <p className="text-sm text-muted-foreground">
                             Organization fields are automatically set based on your current scope.

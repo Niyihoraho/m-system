@@ -101,9 +101,9 @@ export async function GET(request: NextRequest) {
         const where: Record<string, unknown> = {};
         if (search) {
             where.OR = [
-                { name: { contains: search, mode: 'insensitive' } },
-                { email: { contains: search, mode: 'insensitive' } },
-                { username: { contains: search, mode: 'insensitive' } },
+                { name: { contains: search } },
+                { email: { contains: search } },
+                { username: { contains: search } },
             ];
         }
 

@@ -21,15 +21,13 @@ export interface UserResponse {
 
 // Event Types
 export interface EventPayload {
-  title: string;
-  description?: string;
-  date: string | Date;
-  location?: string;
-  universityId?: string;
-  smallGroupId?: string;
-  alumniGroupId?: string;
-  capacity?: number;
-  isPublic?: boolean;
+  name: string;
+  type: string;
+  regionId?: number;
+  universityId?: number;
+  smallGroupId?: number;
+  alumniGroupId?: number;
+  isActive?: boolean;
 }
 
 export interface EventResponse {

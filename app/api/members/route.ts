@@ -96,8 +96,8 @@ export async function POST(request: NextRequest) {
                 localChurch: handleEmptyValue(data.localChurch),
                 email: handleEmptyValue(data.email),
                 phone: handleEmptyValue(data.phone),
-                type: data.type.toLowerCase() as 'student' | 'alumni',
-                status: data.status ? (data.status.toLowerCase() as 'active' | 'inactive' | 'suspended') : "active",
+                type: data.type.toLowerCase(),
+                status: data.status ? (data.status.toLowerCase()) : "active",
                 regionId: handleNumericValue(data.regionId),
                 universityId: handleNumericValue(data.universityId),
                 smallGroupId: handleNumericValue(data.smallGroupId),
@@ -190,25 +190,25 @@ export async function GET(request: NextRequest) {
         const where: Record<string, unknown> = { ...rlsConditions };
 
         // Apply explicit filters if they exist (but they must be within user's scope)
-        if (smallGroupId) {
+        if (smallGroupId && smallGroupId !== "") {
             const requestedSmallGroupId = Number(smallGroupId);
             if (rlsConditions.smallGroupId && requestedSmallGroupId !== rlsConditions.smallGroupId) {
                 return NextResponse.json({ error: "Access denied to requested small group" }, { status: 403 });
             }
             where.smallGroupId = requestedSmallGroupId;
-        } else if (alumniGroupId) {
+        } else if (alumniGroupId && alumniGroupId !== "") {
             const requestedAlumniGroupId = Number(alumniGroupId);
             if (rlsConditions.alumniGroupId && requestedAlumniGroupId !== rlsConditions.alumniGroupId) {
                 return NextResponse.json({ error: "Access denied to requested alumni group" }, { status: 403 });
             }
             where.alumniGroupId = requestedAlumniGroupId;
-        } else if (universityId) {
+        } else if (universityId && universityId !== "") {
             const requestedUniversityId = Number(universityId);
             if (rlsConditions.universityId && requestedUniversityId !== rlsConditions.universityId) {
                 return NextResponse.json({ error: "Access denied to requested university" }, { status: 403 });
             }
             where.universityId = requestedUniversityId;
-        } else if (regionId) {
+        } else if (regionId && regionId !== "") {
             const requestedRegionId = Number(regionId);
             if (rlsConditions.regionId && requestedRegionId !== rlsConditions.regionId) {
                 return NextResponse.json({ error: "Access denied to requested region" }, { status: 403 });
@@ -228,7 +228,7 @@ export async function GET(request: NextRequest) {
         });
 
         return NextResponse.json({ members }, { status: 200 });
-    } catch (_error) {
+    } catch (error) {
         console.error("Error fetching members:", error);
         return NextResponse.json(
             { error: "Internal server error" },
@@ -363,8 +363,8 @@ export async function PUT(request: NextRequest) {
                 localChurch: handleEmptyValue(data.localChurch),
                 email: handleEmptyValue(data.email),
                 phone: handleEmptyValue(data.phone),
-                type: data.type.toLowerCase() as 'student' | 'alumni',
-                status: data.status ? (data.status.toLowerCase() as 'active' | 'inactive' | 'suspended') : "active",
+                type: data.type.toLowerCase(),
+                status: data.status ? (data.status.toLowerCase()) : "active",
                 regionId: handleNumericValue(data.regionId),
                 universityId: handleNumericValue(data.universityId),
                 smallGroupId: handleNumericValue(data.smallGroupId),
@@ -416,7 +416,7 @@ export async function PUT(request: NextRequest) {
     }
 }
 
-export async function DELETE(_request: NextRequest) {
+export async function DELETE(request: NextRequest) {
     try {
         // Get user scope for RLS
         const userScope = await getUserScope();
@@ -497,7 +497,8 @@ export async function GET_UNIVERSITIES(request: NextRequest) {
             select: { id: true, name: true }
         });
         return NextResponse.json(universities, { status: 200 });
-    } catch (_error) {
+    } catch (error) {
+        console.error("Error fetching universities:", error);
         return NextResponse.json({ error: 'Failed to fetch universities' }, { status: 500 });
     }
 }
@@ -509,7 +510,8 @@ export async function GET_REGIONS(request: NextRequest) {
             select: { id: true, name: true }
         });
         return NextResponse.json(regions, { status: 200 });
-    } catch (_error) {
+    } catch (error) {
+        console.error("Error fetching regions:", error);
         return NextResponse.json({ error: 'Failed to fetch regions' }, { status: 500 });
     }
 }

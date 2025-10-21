@@ -1,12 +1,8 @@
 "use client"
 
 import {
-  
-  Bell,
   ChevronsUpDown,
-  
   LogOut,
-  
   User,
   Shield,
 } from "lucide-react"
@@ -32,6 +28,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { NotificationBell } from "@/components/notification-bell"
 
 export function NavUser({
   user,
@@ -137,10 +134,6 @@ export function NavUser({
               <DropdownMenuItem>
                 <Shield />
                 Roles & Permissions
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Bell />
-                Notifications
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />

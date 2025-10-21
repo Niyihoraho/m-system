@@ -248,7 +248,7 @@ export default function RegionsPage() {
                     </thead>
                     <tbody className="bg-card divide-y divide-border">
                     {filteredRegions.map((region) => (
-                      <tr key={region.id} className="hover:bg-muted/50">
+                      <tr key={region.id}>
                         <td className="px-3 sm:px-6 py-3 sm:py-4 text-sm font-medium text-foreground">
                           {region.id}
                         </td>

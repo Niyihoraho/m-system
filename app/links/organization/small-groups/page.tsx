@@ -260,7 +260,7 @@ export default function SmallGroupsPage() {
                     </thead>
                     <tbody className="bg-card divide-y divide-border">
                     {filteredSmallGroups.map((smallGroup) => (
-                      <tr key={smallGroup.id} className="hover:bg-muted/50">
+                      <tr key={smallGroup.id}>
                         <td className="px-3 sm:px-6 py-3 sm:py-4 text-sm font-medium text-foreground">
                           {smallGroup.id}
                         </td>

@@ -50,10 +50,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             return null
           }
 
-          // Check if user is active
-          if (user.status === 'inactive' || user.status === 'suspended') {
-            return null
-          }
+          // User is valid (no status field in schema)
 
           return {
             id: user.id,
@@ -75,6 +72,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           }
         } catch (error) {
           console.error("Auth error:", error)
+          // Don't expose database errors to client
           return null
         }
       }
@@ -114,5 +112,5 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     signIn: "/",
   },
   secret: process.env.NEXTAUTH_SECRET || "fallback-secret-for-development",
-  trustHost: true,
+  trustHost: process.env.NODE_ENV === "production" ? false : true,
 })

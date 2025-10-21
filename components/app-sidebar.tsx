@@ -48,7 +48,7 @@ const data = {
     {
       name: "GBUR Management",
       logo: GalleryVerticalEnd,
-      plan: "Enterprise",
+      plan: "Ministry",
     },
   ],
 };
@@ -231,18 +231,29 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               })(),
             }]
           : []),
-      ...(userScopedRole === "superadmin"
+      ...(userScopedRole === "superadmin" || userScopedRole === "smallgroup" || userScopedRole === "university"
           ? [{
               icon: Plug,
               name: "System Administration",
               subItems: (() => {
-                const baseItems = [
-                  {
+                const baseItems = [];
+
+                // Add User Management only for super admins
+                if (userScopedRole === "superadmin") {
+                  baseItems.push({
                     name: "User Management",
                     path: "/links/admin/user-management",
                     pro: false,
-                  },
-                ];
+                  });
+                }
+
+                // Add notifications for super admins, small group leaders, and university scope users
+                baseItems.push({
+                  name: "Notifications",
+                  path: "/links/admin/notifications",
+                  pro: false,
+                });
+
                 return baseItems;
               })(),
             }]
@@ -270,13 +281,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <NoSSR
-          fallback={
-            <div className="h-12 w-full animate-pulse bg-muted rounded" />
-          }
-        >
-          <TeamSwitcher teams={data.teams} />
-        </NoSSR>
+        <div className="flex items-center justify-center gap-2">
+          <NoSSR
+            fallback={
+              <div className="h-12 w-full animate-pulse bg-muted rounded" />
+            }
+          >
+            <TeamSwitcher teams={data.teams} />
+          </NoSSR>
+        </div>
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={navMainItems} />

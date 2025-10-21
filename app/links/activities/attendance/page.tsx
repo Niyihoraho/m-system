@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { Plus, Calendar, RefreshCw } from 'lucide-react';
+import { Plus, Calendar, RefreshCw, Smartphone, Monitor } from 'lucide-react';
 import { AppSidebar } from "@/components/app-sidebar";
 import { SuperAdminScopeSelector } from "@/components/super-admin-scope-selector";
 import { useUserScope } from "@/hooks/use-user-scope";
-import { MarkAttendanceForm } from "@/components/attendance/mark-attendance-form";
-import { ViewAttendanceRecords } from "@/components/attendance/view-attendance-records";
+import { EnhancedAttendanceDashboard } from "@/components/attendance/enhanced-attendance-dashboard";
+import { QuickAttendance } from "@/components/attendance/quick-attendance";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -23,9 +23,10 @@ import {
 } from "@/components/ui/sidebar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function AttendancePage() {
-  const [activeTab, setActiveTab] = useState<'mark' | 'view'>('mark');
+  const [activeTab, setActiveTab] = useState<'quick' | 'full'>('quick');
   
   // User scope hook
   const { userScope, loading: scopeLoading, getDefaultValues } = useUserScope();
@@ -94,30 +95,59 @@ export default function AttendancePage() {
         <div className="flex flex-1 flex-col gap-4 p-2 sm:p-4 pt-0">
           <div className="max-w-7xl mx-auto w-full">
             {/* Header */}
-            <div className="mb-4 sm:mb-6 lg:mb-8">
-              <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-1 sm:mb-2">Attendance Tracking</h1>
-              <p className="text-sm sm:text-base text-muted-foreground">Manage attendance records and mark attendance for events</p>
+            <div className="mb-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
+                    Attendance Management
+                  </h1>
+                  <p className="text-muted-foreground">
+                    Track and manage member attendance for ministry events and trainings
+                  </p>
+                </div>
+                
+                {/* Quick Stats Cards */}
+                <div className="flex gap-2">
+                  <Card className="p-3">
+                    <CardContent className="p-0">
+                      <div className="flex items-center gap-2">
+                        <Smartphone className="w-4 h-4 text-blue-600" />
+                        <div className="text-sm">
+                          <div className="font-semibold text-foreground">Quick</div>
+                          <div className="text-xs text-muted-foreground">Mobile</div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="p-3">
+                    <CardContent className="p-0">
+                      <div className="flex items-center gap-2">
+                        <Monitor className="w-4 h-4 text-green-600" />
+                        <div className="text-sm">
+                          <div className="font-semibold text-foreground">Full</div>
+                          <div className="text-xs text-muted-foreground">Desktop</div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
             </div>
 
             {/* Tab Navigation */}
-            <div className="flex gap-2 mb-6">
-              <Button
-                variant={activeTab === 'mark' ? 'default' : 'outline'}
-                onClick={() => setActiveTab('mark')}
-                className="flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Mark Attendance
-              </Button>
-              <Button
-                variant={activeTab === 'view' ? 'default' : 'outline'}
-                onClick={() => setActiveTab('view')}
-                className="flex items-center gap-2"
-              >
-                <Calendar className="w-4 h-4" />
-                View Attendance Records
-              </Button>
-            </div>
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="mb-6">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="quick" className="flex items-center gap-2">
+                  <Smartphone className="w-4 h-4" />
+                  Quick Attendance
+                </TabsTrigger>
+                <TabsTrigger value="full" className="flex items-center gap-2">
+                  <Monitor className="w-4 h-4" />
+                  Full Dashboard
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
 
             {/* Super Admin Scope Selector */}
             {userScope?.scope === 'superadmin' && (
@@ -160,19 +190,20 @@ export default function AttendancePage() {
               </Card>
             )}
 
-            {/* Mark Attendance Tab */}
-            {activeTab === 'mark' && !scopeLoading && (
-              <MarkAttendanceForm
+            {/* Quick Attendance Tab */}
+            {activeTab === 'quick' && !scopeLoading && (
+              <QuickAttendance
                 regionId={regionId}
                 universityId={universityId}
                 smallGroupId={smallGroupId}
                 alumniGroupId={alumniGroupId}
+                userScope={userScope}
               />
             )}
 
-            {/* View Attendance Records Tab */}
-            {activeTab === 'view' && !scopeLoading && (
-              <ViewAttendanceRecords
+            {/* Full Dashboard Tab */}
+            {activeTab === 'full' && !scopeLoading && (
+              <EnhancedAttendanceDashboard
                 regionId={regionId}
                 universityId={universityId}
                 smallGroupId={smallGroupId}

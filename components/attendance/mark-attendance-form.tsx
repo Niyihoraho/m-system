@@ -12,6 +12,16 @@ interface Event {
   id: number;
   name: string;
   type: string;
+  isActive: boolean;
+  regionId?: number | null;
+  universityId?: number | null;
+  smallGroupId?: number | null;
+  alumniGroupId?: number | null;
+  region?: { id: number; name: string } | null;
+  university?: { id: number; name: string } | null;
+  smallGroup?: { id: number; name: string } | null;
+  alumniGroup?: { id: number; name: string } | null;
+  hierarchicalScope?: string;
 }
 
 interface Member {
@@ -25,13 +35,17 @@ interface MarkAttendanceFormProps {
   universityId: string;
   smallGroupId: string;
   alumniGroupId: string;
+  userScope?: {
+    scope: string;
+  } | null;
 }
 
 export function MarkAttendanceForm({ 
   regionId, 
   universityId, 
   smallGroupId, 
-  alumniGroupId 
+  alumniGroupId,
+  userScope 
 }: MarkAttendanceFormProps) {
   const [selectedEvent, setSelectedEvent] = useState("");
   const [events, setEvents] = useState<Event[]>([]);
@@ -50,24 +64,81 @@ export function MarkAttendanceForm({
 
   const fetchEvents = useCallback(async () => {
     try {
-      let url = '/api/events';
+      let url = '/api/events/enhanced?includeStats=true';
       const params = new URLSearchParams();
       
-      if (regionId) params.append("regionId", regionId);
-      if (universityId) params.append("universityId", universityId);
-      if (smallGroupId) params.append("smallGroupId", smallGroupId);
-      if (alumniGroupId) params.append("alumniGroupId", alumniGroupId);
+      // Apply scope-based filtering based on selected filters
+      if (userScope?.scope === 'superadmin') {
+        // Only apply filters that are actually selected (not 'all' or empty)
+        if (regionId && regionId !== '' && regionId !== 'all') params.append("regionId", regionId);
+        if (universityId && universityId !== '' && universityId !== 'all') params.append("universityId", universityId);
+        if (smallGroupId && smallGroupId !== '' && smallGroupId !== 'all') params.append("smallGroupId", smallGroupId);
+        if (alumniGroupId && alumniGroupId !== '' && alumniGroupId !== 'all') params.append("alumniGroupId", alumniGroupId);
+      }
       
       if (params.toString()) {
-        url += "?" + params.toString();
+        url += "&" + params.toString();
       }
       
       const response = await axios.get(url);
-      setEvents(response.data);
+      
+      // Filter events based on exact scope matching
+      const scopeFilteredEvents = response.data.filter((event: Event) => {
+        if (!event.isActive) return false;
+        
+        // For superadmin users, apply exact scope matching
+        if (userScope?.scope === 'superadmin') {
+          // If region is selected, event must match that region
+          if (regionId && regionId !== '' && regionId !== 'all' && event.regionId !== parseInt(regionId)) {
+            return false;
+          }
+          
+          // If university is selected, event must match that university
+          if (universityId && universityId !== '' && universityId !== 'all' && event.universityId !== parseInt(universityId)) {
+            return false;
+          }
+          
+          // If small group is selected, event must match that small group
+          if (smallGroupId && smallGroupId !== '' && smallGroupId !== 'all' && event.smallGroupId !== parseInt(smallGroupId)) {
+            return false;
+          }
+          
+          // If alumni group is selected, event must match that alumni group
+          if (alumniGroupId && alumniGroupId !== '' && alumniGroupId !== 'all' && event.alumniGroupId !== parseInt(alumniGroupId)) {
+            return false;
+          }
+        }
+        
+        return true;
+      }).map((event: Event) => ({
+        ...event,
+        hierarchicalScope: getHierarchicalScope(event)
+      }));
+      
+      setEvents(scopeFilteredEvents);
+      
+      // Clear selected event if it's no longer in the filtered list
+      if (selectedEvent && !scopeFilteredEvents.find(e => `${e.type}-${e.id}` === selectedEvent)) {
+        setSelectedEvent('');
+        setMembers([]);
+        setAttendance({});
+      }
     } catch (error) {
       console.error('Error fetching events:', error);
     }
-  }, [regionId, universityId, smallGroupId, alumniGroupId]);
+  }, [regionId, universityId, smallGroupId, alumniGroupId, userScope, selectedEvent]);
+
+  // Helper function to get hierarchical scope display
+  const getHierarchicalScope = (event: Event): string => {
+    const scopeParts: string[] = [];
+    
+    if (event.region?.name) scopeParts.push(event.region.name);
+    if (event.university?.name) scopeParts.push(event.university.name);
+    if (event.smallGroup?.name) scopeParts.push(event.smallGroup.name);
+    if (event.alumniGroup?.name) scopeParts.push(event.alumniGroup.name);
+    
+    return scopeParts.length > 0 ? scopeParts.join(' ') : 'Super Admin';
+  };
 
   const fetchMembers = useCallback(async () => {
     setIsLoadingMembers(true);
@@ -79,13 +150,15 @@ export function MarkAttendanceForm({
       let url = "/api/members";
       const params = new URLSearchParams();
       
-      if (smallGroupId) {
+      // Apply scope filters when explicitly selected (for all users including superadmin)
+      // Cascading filter: Use the most specific scope available
+      if (smallGroupId && smallGroupId !== '' && smallGroupId !== 'all') {
         params.append("smallGroupId", smallGroupId);
-      } else if (alumniGroupId) {
+      } else if (alumniGroupId && alumniGroupId !== '' && alumniGroupId !== 'all') {
         params.append("alumniGroupId", alumniGroupId);
-      } else if (universityId) {
+      } else if (universityId && universityId !== '' && universityId !== 'all') {
         params.append("universityId", universityId);
-      } else if (regionId) {
+      } else if (regionId && regionId !== '' && regionId !== 'all') {
         params.append("regionId", regionId);
       }
       
@@ -110,7 +183,7 @@ export function MarkAttendanceForm({
     } finally {
       setIsLoadingMembers(false);
     }
-  }, [regionId, universityId, smallGroupId, alumniGroupId]);
+  }, [regionId, universityId, smallGroupId, alumniGroupId, userScope]);
 
   useEffect(() => {
     fetchEvents();
@@ -144,17 +217,39 @@ export function MarkAttendanceForm({
       return;
     }
     
-    const attendanceRecords = members.map(m => ({
-      memberId: m.id,
-      status: attendance[m.id] || "present",
-      permanentEventId: parseInt(selectedEvent)
-    }));
+    // Parse event type and ID from selectedEvent
+    const [eventType, eventId] = selectedEvent.split('-');
+    
+    const attendanceRecords = members.map(m => {
+      const record: any = {
+        memberId: m.id,
+        status: attendance[m.id] || "present"
+      };
+      
+      // Set the appropriate event ID based on event type
+      if (eventType === 'permanent') {
+        record.permanentEventId = parseInt(eventId);
+      } else if (eventType === 'training') {
+        record.trainingId = parseInt(eventId);
+      }
+      
+      return record;
+    });
     
     try {
-      const response = await axios.post("/api/attendance", attendanceRecords);
+      // Use the enhanced bulk attendance API
+      const response = await axios.post("/api/attendance/enhanced", {
+        eventId: parseInt(eventId),
+        eventType: eventType as 'permanent' | 'training',
+        attendance: attendanceRecords.map(record => ({
+          memberId: record.memberId,
+          status: record.status,
+          notes: record.notes
+        }))
+      });
       
-      if (response.status === 201 && response.data.results?.every((r: Record<string, unknown>) => r.success)) {
-        const eventName = events.find(e => e.id.toString() === selectedEvent)?.name || "the selected event";
+      if (response.status === 201 && response.data.success) {
+        const eventName = events.find(e => `${e.type}-${e.id}` === selectedEvent)?.name || "the selected event";
         const memberCount = members.length;
         setSubmitMessage(`Attendance for ${memberCount} member(s) at "${eventName}" has been saved successfully!`);
         setSubmitError(null);
@@ -174,7 +269,8 @@ export function MarkAttendanceForm({
         setSubmitError(errorMessages);
       }
     } catch (err: unknown) {
-      setSubmitError("Failed to save attendance. " + (err.message || ""));
+      const errorMessage = err instanceof Error ? err.message : "Unknown error occurred";
+      setSubmitError("Failed to save attendance. " + errorMessage);
     }
   };
 
@@ -196,11 +292,23 @@ export function MarkAttendanceForm({
                   <SelectValue placeholder="Select event" />
                 </SelectTrigger>
                 <SelectContent>
-                  {events.map((event) => (
-                    <SelectItem key={event.id} value={event.id.toString()}>
-                      {event.name}
-                    </SelectItem>
-                  ))}
+                  {events.length > 0 ? (
+                    events.map((event) => (
+                      <SelectItem key={`${event.type}-${event.id}`} value={`${event.type}-${event.id}`}>
+                        <div className="flex flex-col">
+                          <div className="font-medium">{event.name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {event.type === 'permanent' ? 'Permanent Event' : 'Training Event'}
+                            {event.hierarchicalScope && ` • ${event.hierarchicalScope}`}
+                          </div>
+                        </div>
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <div className="px-3 py-2 text-sm text-muted-foreground">
+                      No events found for the selected scope
+                    </div>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -243,6 +351,19 @@ export function MarkAttendanceForm({
               Loading members...
             </div>
           ) : members.length > 0 ? (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="text-sm text-blue-800">
+                <strong>Showing members from:</strong> {
+                  smallGroupId && smallGroupId !== '' ? 'Small Group' :
+                  alumniGroupId && alumniGroupId !== '' ? 'Alumni Group' :
+                  universityId && universityId !== '' ? 'University' :
+                  regionId && regionId !== '' ? 'Region' :
+                  'All Members'
+                } ({members.length} member{members.length !== 1 ? 's' : ''})
+              </div>
+            </div>
+          ) : null}
+          {members.length > 0 ? (
             <div className="overflow-x-auto mt-8">
               <table className="min-w-full divide-y divide-border">
                 <thead>

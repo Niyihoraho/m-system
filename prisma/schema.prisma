@@ -1,6 +1,7 @@
 generator client {
   provider      = "prisma-client-js"
   binaryTargets = ["native", "rhel-openssl-3.0.x"]
+  engineType    = "library"
 }
 
 datasource db {
@@ -311,17 +312,38 @@ model movement {
 }
 
 model notification {
-  id        Int                 @id @default(autoincrement())
-  userId    String?
-  type      notification_type
-  subject   String?
-  message   String
-  status    notification_status
-  sentAt    DateTime?
-  createdAt DateTime            @default(now())
-  user      user?               @relation(fields: [userId], references: [id], map: "Notification_userId_fkey")
+  id          Int                 @id @default(autoincrement())
+  userId      String?
+  type        notification_type
+  subject     String?
+  message     String
+  status      notification_status
+  sentAt      DateTime?
+  createdAt   DateTime            @default(now())
+  readAt      DateTime?
+  eventType   String?             // 'attendance_miss', 'event_reminder', etc.
+  eventId     Int?                // Reference to attendance/event
+  metadata    String?             @db.LongText // JSON string for absent member details
+  user        user?               @relation(fields: [userId], references: [id], map: "Notification_userId_fkey")
 
   @@index([userId], map: "Notification_userId_fkey")
+  @@index([eventType], map: "Notification_eventType_idx")
+  @@index([createdAt], map: "Notification_createdAt_idx")
+}
+
+model notificationpreferences {
+  id              Int      @id @default(autoincrement())
+  userId          String   @unique(map: "NotificationPreferences_userId_key")
+  attendanceAlerts Boolean @default(true)
+  eventReminders  Boolean  @default(true)
+  emailEnabled    Boolean  @default(true)
+  smsEnabled      Boolean  @default(false)
+  inAppEnabled    Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            user     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "NotificationPreferences_userId_idx")
 }
 
 model paymentgateway {
@@ -520,6 +542,7 @@ model user {
   authenticator                                       authenticator[]
   document                                            document[]
   notification                                        notification[]
+  notificationpreferences                             notificationpreferences?
   session                                             session[]
   trainings                                           trainings[]
   userrole                                            userrole[]

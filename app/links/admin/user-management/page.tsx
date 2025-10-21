@@ -346,7 +346,7 @@ export default function UserManagementPage() {
                     </thead>
                     <tbody className="bg-card divide-y divide-border">
                     {filteredUsers.map((user) => (
-                      <tr key={user.id} className="hover:bg-muted/50">
+                      <tr key={user.id}>
                         <td className="px-3 sm:px-6 py-3 sm:py-4">
                           <div className="flex items-center">
                             <div className="flex-shrink-0 h-8 w-8 sm:h-10 sm:w-10">

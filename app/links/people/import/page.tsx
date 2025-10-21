@@ -88,12 +88,6 @@ export default function MemberImportPage() {
                 case 'placeofbirthsector':
                   memberData.placeOfBirthSector = value;
                   break;
-                case 'placeofbirthcell':
-                  memberData.placeOfBirthCell = value;
-                  break;
-                case 'placeofbirthvillage':
-                  memberData.placeOfBirthVillage = value;
-                  break;
                 case 'localchurch':
                   memberData.localChurch = value;
                   break;
@@ -218,12 +212,6 @@ export default function MemberImportPage() {
                 case 'placeofbirthsector':
                   memberData.placeOfBirthSector = value;
                   break;
-                case 'placeofbirthcell':
-                  memberData.placeOfBirthCell = value;
-                  break;
-                case 'placeofbirthvillage':
-                  memberData.placeOfBirthVillage = value;
-                  break;
                 case 'localchurch':
                   memberData.localChurch = value;
                   break;
@@ -305,8 +293,6 @@ export default function MemberImportPage() {
       'birthdate',
       'placeOfBirthDistrict',
       'placeOfBirthSector',
-      'placeOfBirthCell',
-      'placeOfBirthVillage',
       'localChurch',
       'email',
       'phone',
@@ -329,8 +315,6 @@ export default function MemberImportPage() {
       '1990-01-15',
       'Kigali',
       'Nyarugenge',
-      'Cell A',
-      'Village 1',
       'Local Church Name',
       'john.doe@email.com',
       '+250123456789',
@@ -554,7 +538,7 @@ export default function MemberImportPage() {
                     <div className="space-y-2">
                       <h4 className="font-medium text-sm">Optional columns:</h4>
                       <div className="text-sm text-muted-foreground space-y-1">
-                        <p>• birthdate, placeOfBirthDistrict, placeOfBirthSector, placeOfBirthCell, placeOfBirthVillage</p>
+                        <p>• birthdate, placeOfBirthDistrict, placeOfBirthSector</p>
                         <p>• localChurch, email, phone, status, regionId, universityId, smallGroupId, alumniGroupId</p>
                         <p>• graduationDate, faculty, professionalism, maritalStatus</p>
                       </div>

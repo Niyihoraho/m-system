@@ -254,7 +254,7 @@ export default function AlumniSmallGroupsPage() {
                     </thead>
                     <tbody className="bg-card divide-y divide-border">
                     {filteredAlumniSmallGroups.map((alumniSmallGroup) => (
-                      <tr key={alumniSmallGroup.id} className="hover:bg-muted/50">
+                      <tr key={alumniSmallGroup.id}>
                         <td className="px-3 sm:px-6 py-3 sm:py-4 text-sm font-medium text-foreground">
                           {alumniSmallGroup.id}
                         </td>

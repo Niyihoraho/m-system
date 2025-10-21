@@ -498,15 +498,45 @@ export function EditEventModal({ event, onEventUpdated, isOpen, onClose }: EditE
                     </div>
                   )}
 
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="isActive"
-                      checked={formData.isActive}
-                      onCheckedChange={(checked) => handleInputChange("isActive", checked as boolean)}
-                    />
-                    <Label htmlFor="isActive" className="text-sm font-medium">
-                      Event is active
-                    </Label>
+                  <div className="space-y-3">
+                    <Label className="text-sm font-medium">Event Status</Label>
+                    <div className="flex items-center space-x-4">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="radio"
+                          id="active"
+                          name="status"
+                          value="active"
+                          checked={formData.isActive}
+                          onChange={() => handleInputChange("isActive", true)}
+                          className="h-4 w-4 text-green-600 focus:ring-green-500"
+                        />
+                        <Label htmlFor="active" className="text-sm font-medium text-green-700 flex items-center gap-2">
+                          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                          Active (Event is running)
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="radio"
+                          id="inactive"
+                          name="status"
+                          value="inactive"
+                          checked={!formData.isActive}
+                          onChange={() => handleInputChange("isActive", false)}
+                          className="h-4 w-4 text-red-600 focus:ring-red-500"
+                        />
+                        <Label htmlFor="inactive" className="text-sm font-medium text-red-700 flex items-center gap-2">
+                          <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                          Inactive (Event has ended)
+                        </Label>
+                      </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground bg-blue-50 p-2 rounded-md">
+                      <strong>Status Explanation:</strong><br/>
+                      • <strong>Active:</strong> Event is currently running, members can attend (🟢 Green)<br/>
+                      • <strong>Inactive:</strong> Event has ended, engagement period is complete (🔴 Red)
+                    </div>
                   </div>
                 </div>
 
