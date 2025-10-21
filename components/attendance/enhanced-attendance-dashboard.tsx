@@ -19,7 +19,8 @@ import {
   UserX,
   AlertCircle,
   BarChart3,
-  Settings
+  Settings,
+  Edit
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { EditAttendanceModal } from "@/components/attendance/edit-attendance-modal";
 import { StudentAttendanceTable } from "./student-attendance-table";
 
 interface Event {
@@ -124,10 +126,15 @@ export function EnhancedAttendanceDashboard({
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [availableDates, setAvailableDates] = useState<{value: string, label: string}[]>([]);
   
   // Bulk operations
   const [selectedMembers, setSelectedMembers] = useState<Set<number>>(new Set());
   const [bulkAction, setBulkAction] = useState<string>('');
+  
+  // Edit modal state
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingRecordId, setEditingRecordId] = useState<number | null>(null);
 
   // Fetch events with dynamic scope-based filtering
   const fetchEvents = useCallback(async () => {
@@ -186,8 +193,18 @@ export function EnhancedAttendanceDashboard({
       
       setEvents(scopeFilteredEvents);
       
-      // Clear selected event if it's no longer in the filtered list
-      if (selectedEvent && selectedEvent !== 'all' && !scopeFilteredEvents.find(e => `${e.type}-${e.id}` === selectedEvent)) {
+      // Debug logging to understand event filtering
+      console.log('Event filtering debug:', {
+        totalEvents: response.data.length,
+        scopeFilteredEvents: scopeFilteredEvents.length,
+        selectedEvent,
+        availableEventIds: scopeFilteredEvents.map(e => `${e.type}-${e.id}`)
+      });
+      
+      // Only clear selected event if it's no longer in the filtered list AND we have events available
+      // This prevents clearing when events are still loading or temporarily filtered out
+      if (selectedEvent && selectedEvent !== 'all' && scopeFilteredEvents.length > 0 && !scopeFilteredEvents.find(e => `${e.type}-${e.id}` === selectedEvent)) {
+        console.log('Clearing selected event because it\'s not in filtered list:', selectedEvent);
         setSelectedEvent('all');
         setMembers([]);
         setAttendance({});
@@ -283,6 +300,74 @@ export function EnhancedAttendanceDashboard({
     }
   }, [selectedEvent, regionId, universityId, smallGroupId, alumniGroupId]);
 
+  // Fetch available dates for the selected event and scope
+  const fetchAvailableDates = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      
+      // Apply scope filters for superadmin
+      if (userScope?.scope === 'superadmin') {
+        if (regionId && regionId !== 'all') params.append("regionId", regionId);
+        if (universityId && universityId !== 'all') params.append("universityId", universityId);
+        if (smallGroupId && smallGroupId !== 'all') params.append("smallGroupId", smallGroupId);
+        if (alumniGroupId && alumniGroupId !== 'all') params.append("alumniGroupId", alumniGroupId);
+      }
+      
+      // If a specific event is selected, filter by that event
+      if (selectedEvent && selectedEvent !== 'all') {
+        const eventId = selectedEvent.includes('-') ? selectedEvent.split('-')[1] : selectedEvent;
+        params.append("eventId", eventId);
+      }
+      
+      // Fetch all attendance records to get unique dates
+      const response = await axios.get(`/api/attendance/dates?${params.toString()}`);
+      
+      console.log('Fetching available dates - API response:', response.data);
+      
+      if (response.data && response.data.dates) {
+        console.log('Available dates from API:', response.data.dates);
+        const dates = response.data.dates.map((date: string) => {
+          const dateObj = new Date(date);
+          const formattedDate = dateObj.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+          });
+          const isoDate = dateObj.toISOString().split('T')[0]; // YYYY-MM-DD format
+          
+          return {
+            value: isoDate,
+            label: formattedDate
+          };
+        });
+        
+        // Sort dates in descending order (most recent first)
+        dates.sort((a: any, b: any) => new Date(b.value).getTime() - new Date(a.value).getTime());
+        
+        setAvailableDates(dates);
+        
+        // Reset date filter if the currently selected date is no longer available
+        if (dateFilter && dateFilter !== 'all' && !dates.find(d => d.value === dateFilter)) {
+          setDateFilter('all');
+        }
+      } else {
+        setAvailableDates([]);
+        // Reset date filter if no dates are available
+        if (dateFilter && dateFilter !== 'all') {
+          setDateFilter('all');
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching available dates:', error);
+      setAvailableDates([]);
+      
+      // If there's an error, reset date filter to 'all' to avoid issues
+      if (dateFilter && dateFilter !== 'all') {
+        setDateFilter('all');
+      }
+    }
+  }, [selectedEvent, regionId, universityId, smallGroupId, alumniGroupId, userScope, dateFilter]);
+
   // Fetch attendance records
   const fetchAttendanceRecords = useCallback(async () => {
     try {
@@ -313,13 +398,22 @@ export function EnhancedAttendanceDashboard({
       
       // Always require a specific event (not 'all')
       if (selectedEvent && selectedEvent !== 'all') {
-        params.append("eventId", selectedEvent);
+        // Parse event ID from the format "permanent-1" or "training-1"
+        const eventId = selectedEvent.includes('-') ? selectedEvent.split('-')[1] : selectedEvent;
+        params.append("eventId", eventId);
       }
       if (statusFilter && statusFilter !== 'all') {
         params.append("status", statusFilter);
       }
       if (dateFilter && dateFilter !== 'all') {
-        params.append("dateRange", dateFilter);
+        // If it's a specific date (YYYY-MM-DD format), use dateFrom and dateTo
+        if (dateFilter.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          params.append("dateFrom", dateFilter);
+          params.append("dateTo", dateFilter);
+        } else {
+          // Otherwise use the old dateRange parameter for relative dates
+          params.append("dateRange", dateFilter);
+        }
       }
       
       // Apply scope filters for superadmin
@@ -340,6 +434,19 @@ export function EnhancedAttendanceDashboard({
     }
   }, [selectedEvent, statusFilter, dateFilter, regionId, universityId, smallGroupId, alumniGroupId, userScope]);
 
+  // Handle edit record
+  const handleEditRecord = (recordId: number) => {
+    setEditingRecordId(recordId);
+    setEditModalOpen(true);
+  };
+
+  // Handle edit success
+  const handleEditSuccess = () => {
+    // Refresh the records list
+    fetchAttendanceRecords();
+    fetchAvailableDates();
+  };
+
   // Load data on mount and when dependencies change
   useEffect(() => {
     fetchEvents();
@@ -357,9 +464,10 @@ export function EnhancedAttendanceDashboard({
 
   useEffect(() => {
     if (activeTab === 'view' || activeTab === 'analytics') {
+      fetchAvailableDates();
       fetchAttendanceRecords();
     }
-  }, [activeTab, fetchAttendanceRecords]);
+  }, [activeTab, fetchAvailableDates, fetchAttendanceRecords]);
 
   // Handle attendance change
   const handleAttendanceChange = (memberId: number, status: string) => {
@@ -487,8 +595,8 @@ export function EnhancedAttendanceDashboard({
       record.member.secondname.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'all' || record.status === statusFilter;
     const matchesEvent = !selectedEvent || selectedEvent === 'all' || 
-      record.permanentministryevent?.id.toString() === selectedEvent ||
-      record.trainings?.id.toString() === selectedEvent;
+      record.permanentministryevent?.id.toString() === (selectedEvent.includes('-') ? selectedEvent.split('-')[1] : selectedEvent) ||
+      record.trainings?.id.toString() === (selectedEvent.includes('-') ? selectedEvent.split('-')[1] : selectedEvent);
     return matchesSearch && matchesStatus && matchesEvent;
   });
 
@@ -581,6 +689,12 @@ export function EnhancedAttendanceDashboard({
                       <SelectValue placeholder="Choose an event" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="all">
+                        <div className="flex flex-col">
+                          <div className="font-medium">All Events</div>
+                          <div className="text-xs text-muted-foreground">Select an event to mark attendance</div>
+                        </div>
+                      </SelectItem>
                       {events.length > 0 ? (
                         events.map((event) => (
                           <SelectItem key={`${event.type}-${event.id}`} value={`${event.type}-${event.id}`}>
@@ -602,7 +716,7 @@ export function EnhancedAttendanceDashboard({
                   </Select>
                 </div>
                 
-                {selectedEvent && (
+                {selectedEvent && selectedEvent !== 'all' && (
                   <div className="flex items-end">
                     <Button 
                       onClick={handleSubmitAttendance}
@@ -626,7 +740,7 @@ export function EnhancedAttendanceDashboard({
               </div>
 
               {/* Members List */}
-              {selectedEvent && (
+              {selectedEvent && selectedEvent !== 'all' && (
                 <>
                   {isLoadingMembers ? (
                     <div className="flex items-center justify-center py-8">
@@ -827,14 +941,13 @@ export function EnhancedAttendanceDashboard({
                     <SelectContent>
                       <SelectItem value="all">All Events</SelectItem>
                       {events.map((event) => (
-                        <SelectItem key={event.id} value={event.id.toString()}>
+                        <SelectItem key={`${event.type}-${event.id}`} value={`${event.type}-${event.id}`}>
                           <div className="flex flex-col">
                             <div className="font-medium">{event.name}</div>
-                            {event.hierarchicalScope && (
-                              <div className="text-xs text-muted-foreground">
-                                {event.hierarchicalScope}
-                              </div>
-                            )}
+                            <div className="text-xs text-muted-foreground">
+                              {event.type === 'permanent' ? 'Permanent Event' : 'Training Event'}
+                              {event.hierarchicalScope && ` • ${event.hierarchicalScope}`}
+                            </div>
                           </div>
                         </SelectItem>
                       ))}
@@ -865,10 +978,20 @@ export function EnhancedAttendanceDashboard({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Dates</SelectItem>
-                      <SelectItem value="today">Today</SelectItem>
-                      <SelectItem value="yesterday">Yesterday</SelectItem>
-                      <SelectItem value="last7days">Last 7 Days</SelectItem>
-                      <SelectItem value="thismonth">This Month</SelectItem>
+                      {availableDates.length > 0 ? (
+                        availableDates.map((date) => (
+                          <SelectItem key={date.value} value={date.value}>
+                            {date.label}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <>
+                          <SelectItem value="today">Today</SelectItem>
+                          <SelectItem value="yesterday">Yesterday</SelectItem>
+                          <SelectItem value="last7days">Last 7 Days</SelectItem>
+                          <SelectItem value="thismonth">This Month</SelectItem>
+                        </>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -909,6 +1032,9 @@ export function EnhancedAttendanceDashboard({
                           <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
                             Date
                           </th>
+                          <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+                            Actions
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
@@ -948,6 +1074,16 @@ export function EnhancedAttendanceDashboard({
                                 hour: '2-digit',
                                 minute: '2-digit'
                               })}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEditRecord(record.id)}
+                                className="h-8 w-8 p-0"
+                              >
+                                <Edit className="w-3 h-3" />
+                              </Button>
                             </td>
                           </tr>
                         ))}
@@ -1059,6 +1195,17 @@ export function EnhancedAttendanceDashboard({
           />
         </TabsContent>
       </Tabs>
+
+      {/* Edit Attendance Modal */}
+      <EditAttendanceModal
+        isOpen={editModalOpen}
+        onClose={() => {
+          setEditModalOpen(false);
+          setEditingRecordId(null);
+        }}
+        attendanceId={editingRecordId}
+        onSuccess={handleEditSuccess}
+      />
     </div>
   );
 }

@@ -24,6 +24,32 @@ export async function GET(
         const where: any = { id: notificationId };
         if (userScope.scope !== 'superadmin') {
             where.userId = userScope.userId;
+            
+            // Role-based notification type filtering with direct hierarchy fields
+            if (userScope.scope === 'smallgroup') {
+                // Small group leaders only see attendance_miss notifications for their specific small group
+                where.eventType = 'attendance_miss';
+                
+                // Direct hierarchy filtering - much more efficient than JSON metadata
+                if (userScope.smallGroupId) {
+                    where.smallGroupId = userScope.smallGroupId;
+                }
+                
+            } else if (userScope.scope === 'university') {
+                // University users only see university_acknowledgment notifications for their university
+                where.eventType = 'university_acknowledgment';
+                
+                // Direct hierarchy filtering
+                if (userScope.universityId) {
+                    where.universityId = userScope.universityId;
+                }
+                
+            } else if (userScope.scope === 'region') {
+                // Region users can see notifications for their region
+                if (userScope.regionId) {
+                    where.regionId = userScope.regionId;
+                }
+            }
         }
 
         const notification = await prisma.notification.findFirst({
@@ -84,6 +110,32 @@ export async function PATCH(
         const where: any = { id: notificationId };
         if (userScope.scope !== 'superadmin') {
             where.userId = userScope.userId;
+            
+            // Role-based notification type filtering with direct hierarchy fields
+            if (userScope.scope === 'smallgroup') {
+                // Small group leaders only see attendance_miss notifications for their specific small group
+                where.eventType = 'attendance_miss';
+                
+                // Direct hierarchy filtering - much more efficient than JSON metadata
+                if (userScope.smallGroupId) {
+                    where.smallGroupId = userScope.smallGroupId;
+                }
+                
+            } else if (userScope.scope === 'university') {
+                // University users only see university_acknowledgment notifications for their university
+                where.eventType = 'university_acknowledgment';
+                
+                // Direct hierarchy filtering
+                if (userScope.universityId) {
+                    where.universityId = userScope.universityId;
+                }
+                
+            } else if (userScope.scope === 'region') {
+                // Region users can see notifications for their region
+                if (userScope.regionId) {
+                    where.regionId = userScope.regionId;
+                }
+            }
         }
 
         // Check if notification exists and user has access
@@ -95,13 +147,21 @@ export async function PATCH(
             return NextResponse.json({ error: "Notification not found" }, { status: 404 });
         }
 
-        // Update notification
+        // Prepare update data
+        const updateData: any = {
+            ...(data.status && { status: data.status }),
+            ...(data.readAt !== undefined && { readAt: data.readAt }),
+        };
+
+        // If notification is being marked as read by a small group leader, change status to 'marked'
+        if (data.readAt && userScope.scope === 'smallgroup' && existingNotification.eventType === 'attendance_miss') {
+            updateData.status = 'marked';
+        }
+
+        // Update notification with all changes in a single operation
         const updatedNotification = await prisma.notification.update({
             where: { id: notificationId },
-            data: {
-                ...(data.status && { status: data.status }),
-                ...(data.readAt !== undefined && { readAt: data.readAt }),
-            },
+            data: updateData,
             include: {
                 user: {
                     select: {
@@ -152,6 +212,32 @@ export async function DELETE(
         const where: any = { id: notificationId };
         if (userScope.scope !== 'superadmin') {
             where.userId = userScope.userId;
+            
+            // Role-based notification type filtering with direct hierarchy fields
+            if (userScope.scope === 'smallgroup') {
+                // Small group leaders only see attendance_miss notifications for their specific small group
+                where.eventType = 'attendance_miss';
+                
+                // Direct hierarchy filtering - much more efficient than JSON metadata
+                if (userScope.smallGroupId) {
+                    where.smallGroupId = userScope.smallGroupId;
+                }
+                
+            } else if (userScope.scope === 'university') {
+                // University users only see university_acknowledgment notifications for their university
+                where.eventType = 'university_acknowledgment';
+                
+                // Direct hierarchy filtering
+                if (userScope.universityId) {
+                    where.universityId = userScope.universityId;
+                }
+                
+            } else if (userScope.scope === 'region') {
+                // Region users can see notifications for their region
+                if (userScope.regionId) {
+                    where.regionId = userScope.regionId;
+                }
+            }
         }
 
         // Check if notification exists and user has access

@@ -15,6 +15,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet"
 import { Plus, GraduationCap, MapPin } from "lucide-react"
+import { useUserScope } from "@/hooks/use-user-scope"
 
 interface Region {
   id: number;
@@ -37,12 +38,43 @@ export function AddAlumniSmallGroupModal({ children, onAlumniSmallGroupAdded }: 
     regionId: "",
   })
 
+  // Get user scope for pre-selected fields
+  const { userScope, scopeLoading } = useUserScope()
+  
+  // Determine which fields should be visible based on user scope
+  const visibleFields = React.useMemo(() => {
+    if (!userScope || scopeLoading) return { region: true }
+    
+    return {
+      region: userScope.scope === 'superadmin' || userScope.scope === 'national'
+    }
+  }, [userScope, scopeLoading])
+
+  // Get default values based on user scope
+  const defaultValues = React.useMemo(() => {
+    if (!userScope || scopeLoading) return {}
+    
+    return {
+      regionId: userScope.region?.id?.toString() || ""
+    }
+  }, [userScope, scopeLoading])
+
   // Fetch regions on modal open
   React.useEffect(() => {
     if (open) {
       fetchRegions()
     }
   }, [open])
+
+  // Set default values when modal opens and user scope is loaded
+  React.useEffect(() => {
+    if (open && userScope && !scopeLoading && defaultValues.regionId) {
+      setFormData(prev => ({
+        ...prev,
+        regionId: defaultValues.regionId
+      }))
+    }
+  }, [open, userScope, scopeLoading, defaultValues.regionId])
 
   const fetchRegions = async () => {
     try {
@@ -183,6 +215,22 @@ export function AddAlumniSmallGroupModal({ children, onAlumniSmallGroupAdded }: 
                   </div>
                 )}
 
+                {/* Show pre-selected scope information */}
+                {userScope && userScope.scope !== 'superadmin' && userScope.scope !== 'national' && (
+                  <div className="space-y-3">
+                    <h4 className="text-md font-semibold text-foreground border-b pb-2">Pre-selected Scope</h4>
+                    
+                    {!visibleFields.region && userScope.region && (
+                      <div className="flex items-center gap-2 p-3 bg-muted/50 border border-border rounded-lg">
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm text-foreground">
+                          Region: <span className="font-semibold">{userScope.region.name}</span>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Alumni Small Group Information */}
                 <div className="space-y-4">
                   <h4 className="text-md font-semibold text-foreground border-b pb-2">Alumni Small Group Details</h4>
@@ -203,28 +251,30 @@ export function AddAlumniSmallGroupModal({ children, onAlumniSmallGroupAdded }: 
                     {errors.name && <p className="text-sm text-red-600">{errors.name}</p>}
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="regionId" className="text-sm font-medium flex items-center gap-2">
-                      <MapPin className="h-4 w-4" />
-                      Region *
-                    </Label>
-                    <Select
-                      value={formData.regionId}
-                      onValueChange={(value) => handleInputChange("regionId", value)}
-                    >
-                      <SelectTrigger className="h-11">
-                        <SelectValue placeholder="Select a region" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {regions.map((region) => (
-                          <SelectItem key={region.id} value={region.id.toString()}>
-                            {region.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {errors.regionId && <p className="text-sm text-red-600">{errors.regionId}</p>}
-                  </div>
+                  {visibleFields.region && (
+                    <div className="space-y-2">
+                      <Label htmlFor="regionId" className="text-sm font-medium flex items-center gap-2">
+                        <MapPin className="h-4 w-4" />
+                        Region *
+                      </Label>
+                      <Select
+                        value={formData.regionId}
+                        onValueChange={(value) => handleInputChange("regionId", value)}
+                      >
+                        <SelectTrigger className="h-11">
+                          <SelectValue placeholder="Select a region" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {regions.map((region) => (
+                            <SelectItem key={region.id} value={region.id.toString()}>
+                              {region.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {errors.regionId && <p className="text-sm text-red-600">{errors.regionId}</p>}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex gap-3 pt-6 border-t">

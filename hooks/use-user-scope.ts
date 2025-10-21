@@ -56,7 +56,7 @@ export function useUserScope() {
         return { region: false, university: true, smallGroup: true, alumniGroup: true }
       
       case 'university':
-        return { region: false, university: false, smallGroup: true, alumniGroup: false }
+        return { region: false, university: false, smallGroup: true, alumniGroup: true }
       
       case 'smallgroup':
         return { region: false, university: false, smallGroup: false, alumniGroup: false }

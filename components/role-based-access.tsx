@@ -175,5 +175,96 @@ export function NotGroupLevel({ children, fallback = null }: { children: React.R
 
 // Hook for getting user scope - now uses shared context
 export function useUserScope() {
-  return useRoleAccess();
+  const { userScope, isLoading, userRole } = useRoleAccess();
+  
+  // Determine which fields should be visible based on user scope
+  const getVisibleFields = () => {
+    if (!userScope) {
+      return {
+        region: true,
+        university: true,
+        smallGroup: true,
+        alumniGroup: true
+      };
+    }
+
+    switch (userScope.scope) {
+      case 'superadmin':
+        return {
+          region: true,
+          university: true,
+          smallGroup: true,
+          alumniGroup: true
+        };
+      case 'national':
+        return {
+          region: true,
+          university: true,
+          smallGroup: true,
+          alumniGroup: true
+        };
+      case 'region':
+        return {
+          region: false, // Region is pre-selected
+          university: true,
+          smallGroup: true,
+          alumniGroup: true
+        };
+      case 'university':
+        return {
+          region: false, // Region is pre-selected
+          university: false, // University is pre-selected
+          smallGroup: true,
+          alumniGroup: true
+        };
+      case 'smallgroup':
+        return {
+          region: false, // Region is pre-selected
+          university: false, // University is pre-selected
+          smallGroup: false, // Small group is pre-selected
+          alumniGroup: true
+        };
+      case 'alumnismallgroup':
+        return {
+          region: false, // Region is pre-selected
+          university: false, // University is pre-selected
+          smallGroup: true,
+          alumniGroup: false // Alumni group is pre-selected
+        };
+      default:
+        return {
+          region: true,
+          university: true,
+          smallGroup: true,
+          alumniGroup: true
+        };
+    }
+  };
+
+  // Get default values based on user scope
+  const getDefaultValues = () => {
+    if (!userScope) {
+      return {
+        regionId: null,
+        universityId: null,
+        smallGroupId: null,
+        alumniGroupId: null
+      };
+    }
+
+    return {
+      regionId: userScope.region?.id || null,
+      universityId: userScope.university?.id || null,
+      smallGroupId: userScope.smallGroup?.id || null,
+      alumniGroupId: userScope.alumniGroup?.id || null
+    };
+  };
+
+  return {
+    userScope,
+    isLoading,
+    userRole,
+    getVisibleFields,
+    getDefaultValues
+  };
 }

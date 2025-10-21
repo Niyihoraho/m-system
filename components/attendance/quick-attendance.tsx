@@ -13,7 +13,9 @@ import {
   UserCheck,
   UserX,
   AlertCircle,
-  Smartphone
+  Smartphone,
+  Calendar,
+  Edit
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { EditAttendanceModal } from "@/components/attendance/edit-attendance-modal";
 
 interface Event {
   id: number;
@@ -74,6 +77,17 @@ export function QuickAttendance({
   const [members, setMembers] = useState<Member[]>([]);
   const [attendance, setAttendance] = useState<{ [memberId: string]: string }>({});
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // View records state
+  const [showRecords, setShowRecords] = useState(false);
+  const [records, setRecords] = useState<any[]>([]);
+  const [isLoadingRecords, setIsLoadingRecords] = useState(false);
+  const [availableDates, setAvailableDates] = useState<{value: string, label: string}[]>([]);
+  const [dateFilter, setDateFilter] = useState('all');
+  
+  // Edit modal state
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingRecordId, setEditingRecordId] = useState<number | null>(null);
   
   // Loading states
   const [isLoadingEvents, setIsLoadingEvents] = useState(false);
@@ -217,6 +231,143 @@ export function QuickAttendance({
     }
   }, [selectedEvent, regionId, universityId, smallGroupId, alumniGroupId]);
 
+  // Fetch available dates for the selected event and scope
+  const fetchAvailableDates = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      
+      // Apply scope filters for superadmin
+      if (userScope?.scope === 'superadmin') {
+        if (regionId && regionId !== 'all') params.append("regionId", regionId);
+        if (universityId && universityId !== 'all') params.append("universityId", universityId);
+        if (smallGroupId && smallGroupId !== 'all') params.append("smallGroupId", smallGroupId);
+        if (alumniGroupId && alumniGroupId !== 'all') params.append("alumniGroupId", alumniGroupId);
+      }
+      
+      // If a specific event is selected, filter by that event
+      if (selectedEvent && selectedEvent !== 'all') {
+        const eventId = selectedEvent.includes('-') ? selectedEvent.split('-')[1] : selectedEvent;
+        params.append("eventId", eventId);
+      }
+      
+      // Fetch all attendance records to get unique dates
+      const response = await axios.get(`/api/attendance/dates?${params.toString()}`);
+      
+      console.log('Quick Attendance - Fetching available dates - API response:', response.data);
+      
+      if (response.data && response.data.dates) {
+        console.log('Quick Attendance - Available dates from API:', response.data.dates);
+        const dates = response.data.dates.map((date: string) => {
+          const dateObj = new Date(date);
+          const formattedDate = dateObj.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+          });
+          const isoDate = dateObj.toISOString().split('T')[0]; // YYYY-MM-DD format
+          
+          return {
+            value: isoDate,
+            label: formattedDate
+          };
+        });
+        
+        // Sort dates in descending order (most recent first)
+        dates.sort((a: any, b: any) => new Date(b.value).getTime() - new Date(a.value).getTime());
+        
+        setAvailableDates(dates);
+        
+        // Reset date filter if the currently selected date is no longer available
+        if (dateFilter && dateFilter !== 'all' && !dates.find(d => d.value === dateFilter)) {
+          setDateFilter('all');
+        }
+      } else {
+        setAvailableDates([]);
+        // Reset date filter if no dates are available
+        if (dateFilter && dateFilter !== 'all') {
+          setDateFilter('all');
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching available dates:', error);
+      setAvailableDates([]);
+      
+      // If there's an error, reset date filter to 'all' to avoid issues
+      if (dateFilter && dateFilter !== 'all') {
+        setDateFilter('all');
+      }
+    }
+  }, [selectedEvent, regionId, universityId, smallGroupId, alumniGroupId, userScope, dateFilter]);
+
+  // Fetch attendance records
+  const fetchAttendanceRecords = useCallback(async () => {
+    try {
+      setIsLoadingRecords(true);
+      
+      // For superadmin users, require scope selection before showing records
+      if (userScope?.scope === 'superadmin') {
+        if (!regionId || regionId === 'all') {
+          setRecords([]);
+          return;
+        }
+      }
+      
+      let url = "/api/attendance/enhanced";
+      const params = new URLSearchParams();
+      
+      if (selectedEvent && selectedEvent !== 'all') {
+        // Parse event ID from the format "permanent-1" or "training-1"
+        const eventId = selectedEvent.includes('-') ? selectedEvent.split('-')[1] : selectedEvent;
+        params.append("eventId", eventId);
+      }
+      
+      if (dateFilter && dateFilter !== 'all') {
+        // If it's a specific date (YYYY-MM-DD format), use dateFrom and dateTo
+        if (dateFilter.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          params.append("dateFrom", dateFilter);
+          params.append("dateTo", dateFilter);
+        } else {
+          // Otherwise use the old dateRange parameter for relative dates
+          params.append("dateRange", dateFilter);
+        }
+      }
+      
+      // Apply scope filters for superadmin
+      if (userScope?.scope === 'superadmin') {
+        if (regionId && regionId !== 'all') params.append("regionId", regionId);
+        if (universityId && universityId !== 'all') params.append("universityId", universityId);
+        if (smallGroupId && smallGroupId !== 'all') params.append("smallGroupId", smallGroupId);
+        if (alumniGroupId && alumniGroupId !== 'all') params.append("alumniGroupId", alumniGroupId);
+      }
+      
+      if (params.toString()) {
+        url += "?" + params.toString();
+      }
+      
+      const response = await axios.get(url);
+      console.log('Quick Attendance - Fetch records response:', response.data);
+      setRecords(response.data?.records || []);
+    } catch (error) {
+      console.error('Error fetching attendance records:', error);
+      setError('Failed to load attendance records');
+    } finally {
+      setIsLoadingRecords(false);
+    }
+  }, [selectedEvent, dateFilter, regionId, universityId, smallGroupId, alumniGroupId, userScope]);
+
+  // Handle edit record
+  const handleEditRecord = (recordId: number) => {
+    setEditingRecordId(recordId);
+    setEditModalOpen(true);
+  };
+
+  // Handle edit success
+  const handleEditSuccess = () => {
+    // Refresh the records list
+    fetchAttendanceRecords();
+    fetchAvailableDates();
+  };
+
   // Load data on mount and when dependencies change
   useEffect(() => {
     fetchEvents();
@@ -231,6 +382,13 @@ export function QuickAttendance({
       setSelectedMembers(new Set());
     }
   }, [selectedEvent, fetchMembers]);
+
+  useEffect(() => {
+    if (showRecords) {
+      fetchAvailableDates();
+      fetchAttendanceRecords();
+    }
+  }, [showRecords, fetchAvailableDates, fetchAttendanceRecords]);
 
   // Handle attendance change
   const handleAttendanceChange = (memberId: number, status: string) => {
@@ -573,6 +731,164 @@ export function QuickAttendance({
           )}
         </CardContent>
       </Card>
+
+      {/* View Records Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="w-5 h-5" />
+            View Attendance Records
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Button
+            variant="outline"
+            onClick={() => setShowRecords(!showRecords)}
+            className="w-full"
+          >
+            {showRecords ? 'Hide Records' : 'Show Records'}
+          </Button>
+
+          {showRecords && (
+            <>
+              {/* Event and Date Filters */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="recordEvent">Event</Label>
+                  <Select value={selectedEvent} onValueChange={setSelectedEvent}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All Events" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">
+                        <div className="flex flex-col">
+                          <div className="font-medium">All Events</div>
+                          <div className="text-xs text-muted-foreground">View all attendance records</div>
+                        </div>
+                      </SelectItem>
+                      {events.map((event) => (
+                        <SelectItem key={`${event.type}-${event.id}`} value={`${event.type}-${event.id}`}>
+                          <div className="flex flex-col">
+                            <div className="font-medium">{event.name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {event.type === 'permanent' ? 'Permanent Event' : 'Training Event'}
+                              {event.hierarchicalScope && ` • ${event.hierarchicalScope}`}
+                            </div>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="recordDate">Date</Label>
+                  <Select value={dateFilter} onValueChange={setDateFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All Dates" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Dates</SelectItem>
+                      {availableDates.length > 0 ? (
+                        availableDates.map((date) => (
+                          <SelectItem key={date.value} value={date.value}>
+                            {date.label}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <>
+                          <SelectItem value="today">Today</SelectItem>
+                          <SelectItem value="yesterday">Yesterday</SelectItem>
+                          <SelectItem value="last7days">Last 7 Days</SelectItem>
+                          <SelectItem value="thismonth">This Month</SelectItem>
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Records Display */}
+              {isLoadingRecords ? (
+                <div className="flex items-center justify-center py-8">
+                  <RefreshCw className="w-6 h-6 animate-spin mr-2" />
+                  Loading records...
+                </div>
+              ) : records.length > 0 ? (
+                <div className="space-y-2">
+                  <div className="text-sm text-muted-foreground mb-2">
+                    Showing {records.length} attendance record(s)
+                  </div>
+                  {records.map((record, index) => (
+                    <Card key={index} className="p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="font-medium text-foreground">
+                            {record.member?.firstname} {record.member?.secondname}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {record.permanentministryevent?.name || record.trainings?.name} • 
+                            {new Date(record.recordedAt).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge 
+                            variant={
+                              record.status === 'present' ? 'default' : 
+                              record.status === 'absent' ? 'destructive' : 
+                              'secondary'
+                            }
+                            className={
+                              record.status === 'present' ? 'bg-green-500 hover:bg-green-600' :
+                              record.status === 'absent' ? 'bg-red-500 hover:bg-red-600' :
+                              'bg-yellow-500 hover:bg-yellow-600'
+                            }
+                          >
+                            {record.status === 'present' && <CheckCircle className="w-3 h-3 mr-1" />}
+                            {record.status === 'absent' && <XCircle className="w-3 h-3 mr-1" />}
+                            {record.status === 'excused' && <Clock className="w-3 h-3 mr-1" />}
+                            {record.status}
+                          </Badge>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditRecord(record.id)}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Edit className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>No attendance records found for the selected criteria.</p>
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Edit Attendance Modal */}
+      <EditAttendanceModal
+        isOpen={editModalOpen}
+        onClose={() => {
+          setEditModalOpen(false);
+          setEditingRecordId(null);
+        }}
+        attendanceId={editingRecordId}
+        onSuccess={handleEditSuccess}
+      />
     </div>
   );
 }

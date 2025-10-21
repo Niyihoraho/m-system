@@ -219,12 +219,17 @@ export class NotificationService {
         return;
       }
 
-      // Get small group name if smallGroupId is provided
+      // Get small group data if smallGroupId is provided
       let smallGroupName = 'your small group';
+      let smallGroup = null;
       if (data.smallGroupId) {
-        const smallGroup = await prisma.smallgroup.findUnique({
+        smallGroup = await prisma.smallgroup.findUnique({
           where: { id: data.smallGroupId },
-          select: { name: true }
+          select: { 
+            name: true,
+            regionId: true,
+            universityId: true
+          }
         });
         if (smallGroup) {
           smallGroupName = smallGroup.name;
@@ -237,6 +242,7 @@ export class NotificationService {
         eventType: data.eventType,
         eventName: data.eventName,
         eventDate: data.eventDate.toISOString(),
+        smallGroupId: data.smallGroupId,
         smallGroupName: smallGroupName,
         absentMembers: data.absentMembers.map(member => ({
           id: member.id,
@@ -246,17 +252,31 @@ export class NotificationService {
         totalAbsent: data.absentMembers.length
       };
 
+      // Debug logging for metadata and hierarchy
+      console.log('Creating attendance notification with hierarchy data:', {
+        smallGroupId: data.smallGroupId,
+        smallGroupName: smallGroupName,
+        regionId: smallGroup?.regionId || null,
+        universityId: smallGroup?.universityId || null,
+        metadata: JSON.stringify(metadata, null, 2)
+      });
+
       // Create only in-app notification
       const notification = await (prisma as any).notification.create({
-        data: {
-          userId: adminUserId,
-          type: 'in_app',
+          data: {
+            userId: adminUserId,
+            type: 'in_app',
           subject: `Attendance Alert: ${data.eventName}`,
           message: `${data.absentMembers.length} member${data.absentMembers.length > 1 ? 's' : ''} from ${smallGroupName} missed the university event`,
-          eventType: 'attendance_miss',
-          eventId: data.eventId,
-          metadata: JSON.stringify(metadata),
-          status: 'sent'
+            eventType: 'attendance_miss',
+            eventId: data.eventId,
+            metadata: JSON.stringify(metadata),
+            status: 'sent',
+            // ADD: Direct hierarchy fields for better RLS
+            regionId: smallGroup?.regionId || null,
+            universityId: smallGroup?.universityId || null,
+            smallGroupId: data.smallGroupId || null,
+            alumniGroupId: null
         }
       });
 
@@ -310,6 +330,13 @@ export class NotificationService {
               university: {
                 select: {
                   id: true,
+                  name: true,
+                  regionId: true
+                }
+              },
+              region: {
+                select: {
+                  id: true,
                   name: true
                 }
               }
@@ -324,6 +351,7 @@ export class NotificationService {
       }
 
       const university = smallGroupLeaderRole.smallgroup.university;
+      const region = smallGroupLeaderRole.smallgroup.region;
 
       // Get university leaders (users with university scope)
       const universityLeaders = await prisma.userrole.findMany({
@@ -376,6 +404,8 @@ export class NotificationService {
             eventType: metadata.eventType,
             eventName: metadata.eventName,
             eventDate: new Date(metadata.eventDate),
+            universityId: university.id,
+            regionId: region?.id,
             smallGroupName: smallGroupLeaderRole.smallgroup.name,
             smallGroupLeaderName: notification.user?.name || 'Unknown',
             absentMembers: metadata.absentMembers,
@@ -402,6 +432,8 @@ export class NotificationService {
     eventType: string;
     eventName: string;
     eventDate: Date;
+    universityId?: number;
+    regionId?: number;
     smallGroupName: string;
     smallGroupLeaderName: string;
     absentMembers: any[];
@@ -425,6 +457,7 @@ export class NotificationService {
         eventType: data.eventType,
         eventName: data.eventName,
         eventDate: data.eventDate.toISOString(),
+        universityId: data.universityId, // Add university ID for RLS filtering
         acknowledgedSmallGroups: [{
           smallGroupName: data.smallGroupName,
           smallGroupLeaderName: data.smallGroupLeaderName,
@@ -445,7 +478,12 @@ export class NotificationService {
           eventType: 'university_acknowledgment',
           eventId: data.eventId,
           metadata: JSON.stringify(metadata),
-          status: 'sent'
+          status: 'sent',
+          // ADD: Direct hierarchy fields for better RLS
+          regionId: data.regionId || null,
+          universityId: data.universityId || null,
+          smallGroupId: null,
+          alumniGroupId: null
         }
       });
 

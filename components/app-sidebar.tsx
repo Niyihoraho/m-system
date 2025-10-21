@@ -97,35 +97,46 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       },
       // Only show Organization for users with specific roles
       ...(userScopedRole === "superadmin" ||
-      userScopedRole === "national"
+      userScopedRole === "national" || userScopedRole === "region" || userScopedRole === "university"
         ? [
             {
               icon: Building2,
               name: "Organization",
               subItems: (() => {
-                const baseItems = [
-                  {
-                    name: "Regions",
-                    path: "/links/organization/regions",
-                    pro: false,
-                  },
-                  {
-                    name: "Universities",
-                    path: "/links/organization/universities",
-                    pro: false,
-                  },
-                  {
-                    name: "Small Groups",
-                    path: "/links/organization/small-groups",
-                    pro: false,
-                  },
-                  {
-                    name: "Alumni Small Groups",
-                    path: "/links/organization/alumni-small-groups",
-                    pro: false,
-                  },
-                ];
-                return baseItems;
+                // Show different items based on user scope
+                if (userScopedRole === "superadmin" || userScopedRole === "national" || userScopedRole === "region") {
+                  return [
+                    {
+                      name: "Regions",
+                      path: "/links/organization/regions",
+                      pro: false,
+                    },
+                    {
+                      name: "Universities",
+                      path: "/links/organization/universities",
+                      pro: false,
+                    },
+                    {
+                      name: "Small Groups",
+                      path: "/links/organization/small-groups",
+                      pro: false,
+                    },
+                    {
+                      name: "Alumni Small Groups",
+                      path: "/links/organization/alumni-small-groups",
+                      pro: false,
+                    },
+                  ];
+                } else if (userScopedRole === "university") {
+                  return [
+                    {
+                      name: "Small Groups",
+                      path: "/links/organization/small-groups",
+                      pro: false,
+                    },
+                  ];
+                }
+                return [];
               })(),
             },
           ]

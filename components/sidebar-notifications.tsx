@@ -101,7 +101,7 @@ export function SidebarNotifications({ className }: SidebarNotificationsProps) {
           n.id === notificationId ? { 
             ...n, 
             readAt: new Date().toISOString(),
-            status: 'read'
+            status: 'marked'
           } : n
         )
       );
@@ -199,12 +199,12 @@ export function SidebarNotifications({ className }: SidebarNotificationsProps) {
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className={cn("relative", className)}>
-          <Bell className={cn("h-5 w-5", unreadCount > 0 && "animate-pulse")} />
+        <Button variant="ghost" size="icon" className={cn("relative h-8 w-8", className)}>
+          <Bell className={cn("h-4 w-4", unreadCount > 0 && "animate-pulse text-primary", "text-muted-foreground")} />
           {unreadCount > 0 && (
             <Badge 
               variant="destructive" 
-              className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs animate-pulse"
+              className="absolute -top-1 -right-1 h-4 w-4 rounded-full p-0 flex items-center justify-center text-[10px] font-medium animate-pulse"
             >
               {unreadCount > 9 ? '9+' : unreadCount}
             </Badge>
@@ -212,64 +212,72 @@ export function SidebarNotifications({ className }: SidebarNotificationsProps) {
         </Button>
       </DropdownMenuTrigger>
       
-      <DropdownMenuContent align="end" className="w-96 max-h-[500px] overflow-y-auto">
-        <div className="flex items-center justify-between p-3 border-b">
-          <h3 className="font-semibold text-sm">Attendance Alerts</h3>
+      <DropdownMenuContent align="end" className="w-80 max-h-[400px] overflow-hidden bg-background border-border shadow-lg">
+        <div className="flex items-center justify-between p-2 border-b border-border bg-muted/30">
+          <h3 className="font-medium text-sm text-foreground">
+            {userRole === 'university' ? 'Event Acknowledgments' : 'Attendance Alerts'}
+          </h3>
           {unreadCount > 0 && (
             <Button 
               variant="ghost" 
               size="sm" 
               onClick={markAllAsRead}
-              className="text-xs h-6 px-2"
+              className="text-xs h-6 px-2 text-foreground hover:bg-background/80"
             >
               Mark all read
             </Button>
           )}
         </div>
         
-        {isLoading ? (
-          <div className="p-4 text-center text-sm text-muted-foreground">
-            Loading notifications...
-          </div>
-        ) : notifications.length === 0 ? (
-          <div className="p-4 text-center text-sm text-muted-foreground">
-            No attendance alerts
-          </div>
-        ) : (
-          notifications.map((notification) => {
+        <div className="overflow-y-auto max-h-[350px] scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent hover:scrollbar-thumb-muted-foreground/50">
+          {isLoading ? (
+            <div className="p-3 text-center text-sm text-muted-foreground">
+              Loading notifications...
+            </div>
+          ) : notifications.length === 0 ? (
+            <div className="p-3 text-center text-sm text-muted-foreground">
+              {userRole === 'university' ? 'No event acknowledgments' : 'No attendance alerts'}
+            </div>
+          ) : (
+            notifications.map((notification) => {
             const metadata = parseMetadata(notification.metadata);
             const isUnread = !notification.readAt;
             
             return (
-              <div key={notification.id} className="border-b last:border-b-0">
+              <div key={notification.id} className="border-b border-border/50 last:border-b-0">
                 <div 
                   className={cn(
-                    "p-3 cursor-pointer",
-                    isUnread && "bg-blue-50 dark:bg-blue-950/20"
+                    "p-2 cursor-pointer hover:bg-muted/20 transition-colors",
+                    isUnread && "bg-muted/10 border-l-2 border-l-primary"
                   )}
                   onClick={() => markAsRead(notification.id)}
                 >
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     <div className="flex items-center gap-2">
-                      <Badge variant="default" className="text-xs">
-                        {userRole === 'university' ? 'Event Acknowledgment' : 'Attendance Alert'}
-                      </Badge>
-                      <Badge 
-                        variant={notification.status === 'sent' ? 'default' : notification.status === 'pending' ? 'secondary' : 'destructive'}
-                        className="text-xs"
-                      >
-                        {notification.status}
-                      </Badge>
+                      {/* Hide badges for university users */}
+                      {userRole !== 'university' && (
+                        <>
+                          <Badge variant="secondary" className="text-[10px] h-4 px-1">
+                            Attendance Alert
+                          </Badge>
+                          <Badge 
+                            variant={notification.status === 'sent' ? 'default' : notification.status === 'pending' ? 'secondary' : 'destructive'}
+                            className="text-[10px] h-4 px-1"
+                          >
+                            {notification.status}
+                          </Badge>
+                        </>
+                      )}
                       {isUnread && (
-                        <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                        <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
                       )}
                     </div>
                     
                     <div>
-                      <h4 className="font-medium text-sm mb-1">
+                      <h4 className="font-medium text-xs mb-1">
                         {notification.subject || 'Attendance Alert'}
                       </h4>
-                      <p className="text-sm text-muted-foreground mb-2">
+                      <p className="text-xs text-muted-foreground mb-2">
                         {notification.message}
                       </p>
                     </div>
@@ -284,26 +292,26 @@ export function SidebarNotifications({ className }: SidebarNotificationsProps) {
                         </div>
                         
                         {metadata.absentMembers && metadata.absentMembers.length > 0 && (
-                          <div className="bg-muted/50 rounded-lg p-2">
-                            <div className="text-xs font-medium mb-2">Absent Members:</div>
+                          <div className="bg-muted/30 rounded-md p-1.5">
+                            <div className="text-[10px] font-medium mb-1 text-muted-foreground">Absent Members:</div>
                             <div className="overflow-x-auto">
-                              <table className="w-full text-xs">
+                              <table className="w-full text-[10px]">
                                 <thead>
-                                  <tr className="border-b">
-                                    <th className="text-left py-1 px-2 font-medium">Name</th>
-                                    <th className="text-left py-1 px-2 font-medium">Phone</th>
+                                  <tr className="border-b border-border/50">
+                                    <th className="text-left py-0.5 px-1 font-medium text-muted-foreground">Name</th>
+                                    <th className="text-left py-0.5 px-1 font-medium text-muted-foreground">Phone</th>
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {metadata.absentMembers.slice(0, 5).map((member: any, index: number) => (
-                                    <tr key={index} className="border-b last:border-b-0">
-                                      <td className="py-1 px-2">{member.name}</td>
-                                      <td className="py-1 px-2">
+                                  {metadata.absentMembers.slice(0, 4).map((member: any, index: number) => (
+                                    <tr key={index} className="border-b border-border/30 last:border-b-0">
+                                      <td className="py-0.5 px-1 text-xs">{member.name}</td>
+                                      <td className="py-0.5 px-1">
                                         {member.phone && member.phone !== 'N/A' ? (
                                           <Button
                                             variant="ghost"
                                             size="sm"
-                                            className="h-4 w-4 p-0"
+                                            className="h-3 w-3 p-0"
                                             onClick={(e) => {
                                               e.stopPropagation();
                                               window.open(`tel:${member.phone}`);
@@ -319,9 +327,9 @@ export function SidebarNotifications({ className }: SidebarNotificationsProps) {
                                   ))}
                                 </tbody>
                               </table>
-                              {metadata.absentMembers.length > 5 && (
-                                <div className="text-xs text-muted-foreground mt-1 text-center">
-                                  +{metadata.absentMembers.length - 5} more members
+                              {metadata.absentMembers.length > 4 && (
+                                <div className="text-[10px] text-muted-foreground mt-1 text-center">
+                                  +{metadata.absentMembers.length - 4} more members
                                 </div>
                               )}
                             </div>
@@ -340,30 +348,30 @@ export function SidebarNotifications({ className }: SidebarNotificationsProps) {
                         </div>
                         
                         {metadata.acknowledgedSmallGroups && metadata.acknowledgedSmallGroups.length > 0 && (
-                          <div className="bg-muted/50 rounded-lg p-2">
-                            <div className="text-xs font-medium mb-2">Acknowledged Small Groups:</div>
+                          <div className="bg-muted/30 rounded-md p-1.5">
+                            <div className="text-[10px] font-medium mb-1 text-muted-foreground">Acknowledged Small Groups:</div>
                             <div className="overflow-x-auto">
-                              <table className="w-full text-xs">
+                              <table className="w-full text-[10px]">
                                 <thead>
-                                  <tr className="border-b">
-                                    <th className="text-left py-1 px-2 font-medium">Small Group</th>
-                                    <th className="text-left py-1 px-2 font-medium">Leader</th>
-                                    <th className="text-left py-1 px-2 font-medium">Absent</th>
+                                  <tr className="border-b border-border/50">
+                                    <th className="text-left py-0.5 px-1 font-medium text-muted-foreground">Small Group</th>
+                                    <th className="text-left py-0.5 px-1 font-medium text-muted-foreground">Leader</th>
+                                    <th className="text-left py-0.5 px-1 font-medium text-muted-foreground">Absent</th>
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {metadata.acknowledgedSmallGroups.slice(0, 5).map((group: any, index: number) => (
-                                    <tr key={index} className="border-b last:border-b-0">
-                                      <td className="py-1 px-2">{group.smallGroupName}</td>
-                                      <td className="py-1 px-2">{group.smallGroupLeaderName}</td>
-                                      <td className="py-1 px-2">{group.totalAbsent}</td>
+                                  {metadata.acknowledgedSmallGroups.slice(0, 4).map((group: any, index: number) => (
+                                    <tr key={index} className="border-b border-border/30 last:border-b-0">
+                                      <td className="py-0.5 px-1 text-xs">{group.smallGroupName}</td>
+                                      <td className="py-0.5 px-1 text-xs">{group.smallGroupLeaderName}</td>
+                                      <td className="py-0.5 px-1 text-xs">{group.totalAbsent}</td>
                                     </tr>
                                   ))}
                                 </tbody>
                               </table>
-                              {metadata.acknowledgedSmallGroups.length > 5 && (
-                                <div className="text-xs text-muted-foreground mt-1 text-center">
-                                  +{metadata.acknowledgedSmallGroups.length - 5} more groups
+                              {metadata.acknowledgedSmallGroups.length > 4 && (
+                                <div className="text-[10px] text-muted-foreground mt-1 text-center">
+                                  +{metadata.acknowledgedSmallGroups.length - 4} more groups
                                 </div>
                               )}
                             </div>
@@ -372,7 +380,7 @@ export function SidebarNotifications({ className }: SidebarNotificationsProps) {
                       </div>
                     )}
                     
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1">
                       <span>{formatTime(notification.createdAt)}</span>
                       
                       <div className="flex items-center gap-1">
@@ -380,26 +388,26 @@ export function SidebarNotifications({ className }: SidebarNotificationsProps) {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-6 px-2 text-xs"
+                            className="h-5 px-1.5 text-[10px]"
                             onClick={(e) => {
                               e.stopPropagation();
                               markAsRead(notification.id);
                             }}
                           >
-                            <Check className="h-3 w-3 mr-1" />
+                            <Check className="h-2.5 w-2.5 mr-0.5" />
                             Mark Read
                           </Button>
                         )}
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-6 w-6 p-0"
+                          className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
                           onClick={(e) => {
                             e.stopPropagation();
                             deleteNotification(notification.id);
                           }}
                         >
-                          <X className="h-3 w-3" />
+                          <X className="h-2.5 w-2.5" />
                         </Button>
                       </div>
                     </div>
@@ -409,15 +417,16 @@ export function SidebarNotifications({ className }: SidebarNotificationsProps) {
             );
           })
         )}
+        </div>
         
         {notifications.length > 0 && (
           <>
             <DropdownMenuSeparator />
-            <div className="p-2">
+            <div className="p-1.5">
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="w-full justify-center"
+                className="w-full justify-center h-7 text-xs"
                 onClick={() => {
                   setIsOpen(false);
                   // Navigate to full notifications page

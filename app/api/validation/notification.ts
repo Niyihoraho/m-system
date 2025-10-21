@@ -13,7 +13,7 @@ export const createNotificationSchema = z.object({
 });
 
 export const updateNotificationSchema = z.object({
-  status: z.enum(["sent", "pending", "failed"]).optional(),
+  status: z.enum(["sent", "pending", "failed", "marked"]).optional(),
   readAt: z.string().optional().transform((val) => {
     if (!val || val === "") return null;
     const date = new Date(val);

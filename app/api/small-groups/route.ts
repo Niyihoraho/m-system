@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getUserScope, getTableRLSConditions } from "@/lib/rls";
 
 export async function GET(request: NextRequest) {
     try {
+        // Get user scope for RLS
+        const userScope = await getUserScope();
+        if (!userScope) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
         const { searchParams } = new URL(request.url);
         const regionId = searchParams.get("regionId");
         const universityId = searchParams.get("universityId");
@@ -10,8 +17,15 @@ export async function GET(request: NextRequest) {
         
         // If specific smallGroupId is provided, return that small group
         if (smallGroupId) {
+            const requestedSmallGroupId = Number(smallGroupId);
+            
+            // Apply RLS check for specific small group
+            if (userScope.scope === 'smallgroup' && userScope.smallGroupId !== requestedSmallGroupId) {
+                return NextResponse.json({ error: "Access denied" }, { status: 403 });
+            }
+            
             const smallGroup = await prisma.smallgroup.findUnique({
-                where: { id: Number(smallGroupId) },
+                where: { id: requestedSmallGroupId },
                 include: { 
                     region: { select: { id: true, name: true } },
                     university: { select: { id: true, name: true } }
@@ -20,17 +34,36 @@ export async function GET(request: NextRequest) {
             if (!smallGroup) {
                 return NextResponse.json({ error: "Small group not found" }, { status: 404 });
             }
+
+            // Additional RLS checks for parent scopes
+            if (userScope.scope === 'university' && userScope.universityId && smallGroup.universityId !== userScope.universityId) {
+                return NextResponse.json({ error: "Access denied" }, { status: 403 });
+            }
+            if (userScope.scope === 'region' && userScope.regionId && smallGroup.regionId !== userScope.regionId) {
+                return NextResponse.json({ error: "Access denied" }, { status: 403 });
+            }
+
             return NextResponse.json(smallGroup, { status: 200 });
         }
         
-        const where: Record<string, unknown> = {};
+        // Apply RLS conditions
+        const rlsConditions = getTableRLSConditions(userScope, 'smallgroup');
+        const where: Record<string, unknown> = { ...rlsConditions };
         
-        // Apply explicit filters if provided
+        // Apply explicit filters if provided (but they must be within user's scope)
         if (regionId) {
-            where.regionId = Number(regionId);
+            const requestedRegionId = Number(regionId);
+            if (rlsConditions.regionId && requestedRegionId !== rlsConditions.regionId) {
+                return NextResponse.json({ error: "Access denied to requested region" }, { status: 403 });
+            }
+            where.regionId = requestedRegionId;
         }
         if (universityId) {
-            where.universityId = Number(universityId);
+            const requestedUniversityId = Number(universityId);
+            if (rlsConditions.universityId && requestedUniversityId !== rlsConditions.universityId) {
+                return NextResponse.json({ error: "Access denied to requested university" }, { status: 403 });
+            }
+            where.universityId = requestedUniversityId;
         }
         
         const smallGroups = await prisma.smallgroup.findMany({
@@ -49,6 +82,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
+        // Get user scope for RLS
+        const userScope = await getUserScope();
+        if (!userScope) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
         const body = await request.json();
         const { name, universityId, regionId } = body;
         
@@ -73,11 +112,26 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Apply RLS checks for creation
+        const finalUniversityId = Number(universityId);
+        const finalRegionId = Number(regionId);
+
+        // Check if user has permission to create in this university/region
+        if (userScope.scope === 'university' && userScope.universityId !== finalUniversityId) {
+            return NextResponse.json({ error: "Access denied to create in this university" }, { status: 403 });
+        }
+        if (userScope.scope === 'region' && userScope.regionId !== finalRegionId) {
+            return NextResponse.json({ error: "Access denied to create in this region" }, { status: 403 });
+        }
+        if (userScope.scope === 'smallgroup') {
+            return NextResponse.json({ error: "Small group users cannot create new small groups" }, { status: 403 });
+        }
+
         // Check if small group with same name already exists in the university
         const existingSmallGroup = await prisma.smallgroup.findFirst({
             where: { 
                 name: name.trim(),
-                universityId: Number(universityId)
+                universityId: finalUniversityId
             }
         });
 
@@ -90,7 +144,7 @@ export async function POST(request: NextRequest) {
 
         // Verify university exists
         const university = await prisma.university.findUnique({
-            where: { id: Number(universityId) }
+            where: { id: finalUniversityId }
         });
 
         if (!university) {
@@ -102,7 +156,7 @@ export async function POST(request: NextRequest) {
 
         // Verify region exists
         const region = await prisma.region.findUnique({
-            where: { id: Number(regionId) }
+            where: { id: finalRegionId }
         });
 
         if (!region) {
@@ -113,7 +167,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Verify university belongs to the region
-        if (university.regionId !== Number(regionId)) {
+        if (university.regionId !== finalRegionId) {
             return NextResponse.json(
                 { error: "University does not belong to the selected region" },
                 { status: 400 }
@@ -123,8 +177,8 @@ export async function POST(request: NextRequest) {
         const smallGroup = await prisma.smallgroup.create({
             data: {
                 name: name.trim(),
-                universityId: Number(universityId),
-                regionId: Number(regionId)
+                universityId: finalUniversityId,
+                regionId: finalRegionId
             },
             include: {
                 region: { select: { id: true, name: true } },
@@ -141,6 +195,12 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
     try {
+        // Get user scope for RLS
+        const userScope = await getUserScope();
+        if (!userScope) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
         const { searchParams } = new URL(request.url);
         const smallGroupId = searchParams.get("id");
 
@@ -185,6 +245,17 @@ export async function PUT(request: NextRequest) {
                 { error: "Small group not found" },
                 { status: 404 }
             );
+        }
+
+        // Apply RLS checks for update
+        if (userScope.scope === 'smallgroup' && userScope.smallGroupId !== Number(smallGroupId)) {
+            return NextResponse.json({ error: "Access denied to update this small group" }, { status: 403 });
+        }
+        if (userScope.scope === 'university' && userScope.universityId && existingSmallGroup.universityId !== userScope.universityId) {
+            return NextResponse.json({ error: "Access denied to update small groups outside your university" }, { status: 403 });
+        }
+        if (userScope.scope === 'region' && userScope.regionId && existingSmallGroup.regionId !== userScope.regionId) {
+            return NextResponse.json({ error: "Access denied to update small groups outside your region" }, { status: 403 });
         }
 
         // Check if another small group with same name already exists in the university
@@ -257,6 +328,12 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
     try {
+        // Get user scope for RLS
+        const userScope = await getUserScope();
+        if (!userScope) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
         const { searchParams } = new URL(request.url);
         const smallGroupId = searchParams.get("id");
 
@@ -277,6 +354,17 @@ export async function DELETE(request: NextRequest) {
                 { error: "Small group not found" },
                 { status: 404 }
             );
+        }
+
+        // Apply RLS checks for deletion
+        if (userScope.scope === 'smallgroup') {
+            return NextResponse.json({ error: "Small group users cannot delete small groups" }, { status: 403 });
+        }
+        if (userScope.scope === 'university' && userScope.universityId && existingSmallGroup.universityId !== userScope.universityId) {
+            return NextResponse.json({ error: "Access denied to delete small groups outside your university" }, { status: 403 });
+        }
+        if (userScope.scope === 'region' && userScope.regionId && existingSmallGroup.regionId !== userScope.regionId) {
+            return NextResponse.json({ error: "Access denied to delete small groups outside your region" }, { status: 403 });
         }
 
         // Check if small group is being used by members

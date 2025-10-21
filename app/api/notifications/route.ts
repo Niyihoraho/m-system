@@ -21,9 +21,66 @@ export async function GET(request: NextRequest) {
         // Build where clause
         const where: any = {};
 
-        // Apply RLS - users can only see their own notifications
+        // Apply RLS - users can only see their own notifications and specific notification types
         if (userScope.scope !== 'superadmin') {
             where.userId = userScope.userId;
+            
+            // Debug logging for RLS filtering
+            console.log('RLS Filtering - User Scope:', {
+                scope: userScope.scope,
+                userId: userScope.userId,
+                smallGroupId: userScope.smallGroupId,
+                universityId: userScope.universityId,
+                regionId: userScope.regionId
+            });
+            
+            // Additional debug for small group users
+            if (userScope.scope === 'smallgroup') {
+                console.log('Small group user details:', {
+                    userId: userScope.userId,
+                    smallGroupId: userScope.smallGroupId,
+                    smallGroupName: userScope.smallGroup?.name
+                });
+            }
+            
+            // Role-based notification type filtering with direct hierarchy fields
+            if (userScope.scope === 'smallgroup') {
+                // Small group leaders only see attendance_miss notifications for their specific small group
+                where.eventType = 'attendance_miss';
+                
+                // Direct hierarchy filtering - much more efficient than JSON metadata
+                if (userScope.smallGroupId) {
+                    where.smallGroupId = userScope.smallGroupId;
+                    console.log('Small group filtering applied (direct):', {
+                        smallGroupId: userScope.smallGroupId,
+                        smallGroupName: userScope.smallGroup?.name
+                    });
+                }
+                
+            } else if (userScope.scope === 'university') {
+                // University users only see university_acknowledgment notifications for their university
+                where.eventType = 'university_acknowledgment';
+                
+                // Direct hierarchy filtering
+                if (userScope.universityId) {
+                    where.universityId = userScope.universityId;
+                    console.log('University filtering applied (direct):', {
+                        universityId: userScope.universityId,
+                        universityName: userScope.university?.name
+                    });
+                }
+                
+            } else if (userScope.scope === 'region') {
+                // Region users can see notifications for their region
+                if (userScope.regionId) {
+                    where.regionId = userScope.regionId;
+                    console.log('Region filtering applied (direct):', {
+                        regionId: userScope.regionId,
+                        regionName: userScope.region?.name
+                    });
+                }
+            }
+            // National users can see all notifications within their scope
         } else {
             // Super admin can see all notifications, but can filter by userId
             const userId = searchParams.get("userId");
@@ -37,8 +94,8 @@ export async function GET(request: NextRequest) {
             where.status = status;
         }
 
-        // Event type filter
-        if (eventType && eventType !== "all") {
+        // Event type filter (only apply if not already set by role-based filtering)
+        if (eventType && eventType !== "all" && userScope.scope === 'superadmin') {
             where.eventType = eventType;
         }
 
@@ -46,6 +103,9 @@ export async function GET(request: NextRequest) {
         if (unreadOnly) {
             where.readAt = null;
         }
+
+        // Debug logging for final where clause
+        console.log('Final where clause for notifications query:', JSON.stringify(where, null, 2));
 
         // Get notifications with pagination
         const [notifications, total] = await Promise.all([
@@ -67,6 +127,14 @@ export async function GET(request: NextRequest) {
             }),
             prisma.notification.count({ where })
         ]);
+
+        // Debug logging for results
+        console.log('Notifications query results:', {
+            totalFound: total,
+            notificationsReturned: notifications.length,
+            notificationIds: notifications.map(n => n.id),
+            notificationSubjects: notifications.map(n => n.subject)
+        });
 
         return NextResponse.json({
             notifications,

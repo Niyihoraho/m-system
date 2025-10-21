@@ -55,10 +55,19 @@ export function AddEventModal({ children, onEventAdded }: AddEventModalProps) {
   
   // Get user scope and visibility rules
   const { userScope, loading: scopeLoading, getVisibleFields, getDefaultValues } = useUserScope()
-  const visibleFields = getVisibleFields()
+  const visibleFields = React.useMemo(() => getVisibleFields(), [getVisibleFields])
+  
+  // Debug logging
+  React.useEffect(() => {
+    console.log('AddEventModal Debug:', {
+      userScope,
+      visibleFields,
+      scopeLoading
+    })
+  }, [userScope, visibleFields, scopeLoading])
   
   // Memoize default values to prevent infinite re-renders
-  const defaultValues = React.useMemo(() => getDefaultValues(), [userScope])
+  const defaultValues = React.useMemo(() => getDefaultValues(), [getDefaultValues])
   
   const [regions, setRegions] = React.useState<Region[]>([])
   const [universities, setUniversities] = React.useState<University[]>([])
@@ -327,21 +336,45 @@ export function AddEventModal({ children, onEventAdded }: AddEventModalProps) {
                     </div>
                   )}
 
-                  {/* Show scope information for non-superadmin users */}
+                  {/* Show pre-selected scope information */}
                   {userScope && userScope.scope !== 'superadmin' && (
-                    <div className="p-3 text-sm bg-blue-50 border border-blue-200 rounded-md">
-                      <div className="font-medium text-blue-800">Current Scope: {userScope.scope}</div>
-                      {userScope.region && (
-                        <div className="text-blue-700">Region: {userScope.region.name}</div>
+                    <div className="space-y-3">
+                      <h4 className="text-md font-semibold text-foreground border-b pb-2">Pre-selected Scope</h4>
+                      
+                      {!visibleFields.region && userScope.region && (
+                        <div className="flex items-center gap-2 p-3 bg-muted/50 border border-border rounded-lg">
+                          <MapPin className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm text-foreground">
+                            Region: <span className="font-semibold">{userScope.region.name}</span>
+                          </span>
+                        </div>
                       )}
-                      {userScope.university && (
-                        <div className="text-blue-700">University: {userScope.university.name}</div>
+                      
+                      {!visibleFields.university && userScope.university && (
+                        <div className="flex items-center gap-2 p-3 bg-muted/50 border border-border rounded-lg">
+                          <Building2 className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm text-foreground">
+                            University: <span className="font-semibold">{userScope.university.name}</span>
+                          </span>
+                        </div>
                       )}
-                      {userScope.smallGroup && (
-                        <div className="text-blue-700">Small Group: {userScope.smallGroup.name}</div>
+                      
+                      {!visibleFields.smallGroup && userScope.smallGroup && (
+                        <div className="flex items-center gap-2 p-3 bg-muted/50 border border-border rounded-lg">
+                          <Users className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm text-foreground">
+                            Small Group: <span className="font-semibold">{userScope.smallGroup.name}</span>
+                          </span>
+                        </div>
                       )}
-                      {userScope.alumniGroup && (
-                        <div className="text-blue-700">Alumni Group: {userScope.alumniGroup.name}</div>
+                      
+                      {!visibleFields.alumniGroup && userScope.alumniGroup && (
+                        <div className="flex items-center gap-2 p-3 bg-muted/50 border border-border rounded-lg">
+                          <GraduationCap className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm text-foreground">
+                            Alumni Group: <span className="font-semibold">{userScope.alumniGroup.name}</span>
+                          </span>
+                        </div>
                       )}
                     </div>
                   )}

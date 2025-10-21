@@ -43,6 +43,7 @@ model alumnismallgroup {
   permanentministryevent permanentministryevent[]
   trainings              trainings[]
   userrole               userrole[]
+  notification           notification[]
 
   @@index([regionId], map: "AlumniSmallGroup_regionId_fkey")
 }
@@ -324,11 +325,27 @@ model notification {
   eventType   String?             // 'attendance_miss', 'event_reminder', etc.
   eventId     Int?                // Reference to attendance/event
   metadata    String?             @db.LongText // JSON string for absent member details
+  
+  // ADD: Direct hierarchy fields for better RLS
+  regionId    Int?
+  universityId Int?
+  smallGroupId Int?
+  alumniGroupId Int?
+  
+  // Relations
+  region      region?             @relation(fields: [regionId], references: [id], map: "Notification_regionId_fkey")
+  university  university?         @relation(fields: [universityId], references: [id], map: "Notification_universityId_fkey")
+  smallgroup  smallgroup?         @relation(fields: [smallGroupId], references: [id], map: "Notification_smallGroupId_fkey")
+  alumnigroup alumnismallgroup?   @relation(fields: [alumniGroupId], references: [id], map: "Notification_alumniGroupId_fkey")
   user        user?               @relation(fields: [userId], references: [id], map: "Notification_userId_fkey")
 
   @@index([userId], map: "Notification_userId_fkey")
   @@index([eventType], map: "Notification_eventType_idx")
   @@index([createdAt], map: "Notification_createdAt_idx")
+  @@index([userId, regionId], map: "Notification_userId_regionId_idx")
+  @@index([userId, universityId], map: "Notification_userId_universityId_idx")
+  @@index([userId, smallGroupId], map: "Notification_userId_smallGroupId_idx")
+  @@index([userId, alumniGroupId], map: "Notification_userId_alumniGroupId_idx")
 }
 
 model notificationpreferences {
@@ -422,6 +439,7 @@ model region {
   trainings               trainings[]
   university              university[]
   userrole                userrole[]
+  notification            notification[]
 }
 
 model sectors {
@@ -461,6 +479,7 @@ model smallgroup {
   university              university                @relation(fields: [universityId], references: [id], map: "SmallGroup_universityId_fkey")
   trainings               trainings[]
   userrole                userrole[]
+  notification            notification[]
 
   @@index([regionId], map: "SmallGroup_regionId_fkey")
   @@index([universityId], map: "SmallGroup_universityId_fkey")
@@ -521,6 +540,7 @@ model university {
   trainings               trainings[]
   region                  region                    @relation(fields: [regionId], references: [id], map: "University_regionId_fkey")
   userrole                userrole[]
+  notification            notification[]
 
   @@index([regionId], map: "University_regionId_fkey")
 }
@@ -654,6 +674,7 @@ enum notification_status {
   sent
   pending
   failed
+  marked
 }
 
 enum userrole_scope {

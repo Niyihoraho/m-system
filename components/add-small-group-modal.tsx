@@ -15,6 +15,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet"
 import { Plus, Users, Building2, MapPin } from "lucide-react"
+import { useUserScope } from "@/hooks/use-user-scope"
 
 interface Region {
   id: number;
@@ -45,12 +46,48 @@ export function AddSmallGroupModal({ children, onSmallGroupAdded }: AddSmallGrou
     universityId: "",
   })
 
+  // Get user scope for pre-selected fields
+  const { userScope, scopeLoading } = useUserScope()
+  
+  // Determine which fields should be visible based on user scope
+  const visibleFields = React.useMemo(() => {
+    if (!userScope || scopeLoading) return { region: true, university: true }
+    
+    return {
+      region: userScope.scope === 'superadmin' || userScope.scope === 'national',
+      university: userScope.scope === 'superadmin' || userScope.scope === 'national' || userScope.scope === 'region'
+    }
+  }, [userScope, scopeLoading])
+
+  // Get default values based on user scope
+  const defaultValues = React.useMemo(() => {
+    if (!userScope || scopeLoading) return {}
+    
+    return {
+      regionId: userScope.region?.id?.toString() || "",
+      universityId: userScope.university?.id?.toString() || ""
+    }
+  }, [userScope, scopeLoading])
+
   // Fetch regions and universities on modal open
   React.useEffect(() => {
     if (open) {
       fetchRegions()
     }
   }, [open])
+
+  // Set default values when modal opens and user scope is loaded
+  React.useEffect(() => {
+    if (open && userScope && !scopeLoading) {
+      const updates: any = {}
+      if (defaultValues.regionId) updates.regionId = defaultValues.regionId
+      if (defaultValues.universityId) updates.universityId = defaultValues.universityId
+      
+      if (Object.keys(updates).length > 0) {
+        setFormData(prev => ({ ...prev, ...updates }))
+      }
+    }
+  }, [open, userScope, scopeLoading, defaultValues.regionId, defaultValues.universityId])
 
   // Fetch universities when region changes
   React.useEffect(() => {
@@ -217,6 +254,31 @@ export function AddSmallGroupModal({ children, onSmallGroupAdded }: AddSmallGrou
                   </div>
                 )}
 
+                {/* Show pre-selected scope information */}
+                {userScope && userScope.scope !== 'superadmin' && userScope.scope !== 'national' && (
+                  <div className="space-y-3">
+                    <h4 className="text-md font-semibold text-foreground border-b pb-2">Pre-selected Scope</h4>
+                    
+                    {!visibleFields.region && userScope.region && (
+                      <div className="flex items-center gap-2 p-3 bg-muted/50 border border-border rounded-lg">
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm text-foreground">
+                          Region: <span className="font-semibold">{userScope.region.name}</span>
+                        </span>
+                      </div>
+                    )}
+                    
+                    {!visibleFields.university && userScope.university && (
+                      <div className="flex items-center gap-2 p-3 bg-muted/50 border border-border rounded-lg">
+                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm text-foreground">
+                          University: <span className="font-semibold">{userScope.university.name}</span>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Small Group Information */}
                 <div className="space-y-4">
                   <h4 className="text-md font-semibold text-foreground border-b pb-2">Small Group Details</h4>
@@ -237,52 +299,56 @@ export function AddSmallGroupModal({ children, onSmallGroupAdded }: AddSmallGrou
                     {errors.name && <p className="text-sm text-red-600">{errors.name}</p>}
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="regionId" className="text-sm font-medium flex items-center gap-2">
-                      <MapPin className="h-4 w-4" />
-                      Region *
-                    </Label>
-                    <Select
-                      value={formData.regionId}
-                      onValueChange={(value) => handleInputChange("regionId", value)}
-                    >
-                      <SelectTrigger className="h-11">
-                        <SelectValue placeholder="Select a region" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {regions.map((region) => (
-                          <SelectItem key={region.id} value={region.id.toString()}>
-                            {region.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {errors.regionId && <p className="text-sm text-red-600">{errors.regionId}</p>}
-                  </div>
+                  {visibleFields.region && (
+                    <div className="space-y-2">
+                      <Label htmlFor="regionId" className="text-sm font-medium flex items-center gap-2">
+                        <MapPin className="h-4 w-4" />
+                        Region *
+                      </Label>
+                      <Select
+                        value={formData.regionId}
+                        onValueChange={(value) => handleInputChange("regionId", value)}
+                      >
+                        <SelectTrigger className="h-11">
+                          <SelectValue placeholder="Select a region" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {regions.map((region) => (
+                            <SelectItem key={region.id} value={region.id.toString()}>
+                              {region.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {errors.regionId && <p className="text-sm text-red-600">{errors.regionId}</p>}
+                    </div>
+                  )}
 
-                  <div className="space-y-2">
-                    <Label htmlFor="universityId" className="text-sm font-medium flex items-center gap-2">
-                      <Building2 className="h-4 w-4" />
-                      University *
-                    </Label>
-                    <Select
-                      value={formData.universityId}
-                      onValueChange={(value) => handleInputChange("universityId", value)}
-                      disabled={!formData.regionId}
-                    >
-                      <SelectTrigger className="h-11">
-                        <SelectValue placeholder={formData.regionId ? "Select a university" : "Select a region first"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {universities.map((university) => (
-                          <SelectItem key={university.id} value={university.id.toString()}>
-                            {university.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {errors.universityId && <p className="text-sm text-red-600">{errors.universityId}</p>}
-                  </div>
+                  {visibleFields.university && (
+                    <div className="space-y-2">
+                      <Label htmlFor="universityId" className="text-sm font-medium flex items-center gap-2">
+                        <Building2 className="h-4 w-4" />
+                        University *
+                      </Label>
+                      <Select
+                        value={formData.universityId}
+                        onValueChange={(value) => handleInputChange("universityId", value)}
+                        disabled={!formData.regionId}
+                      >
+                        <SelectTrigger className="h-11">
+                          <SelectValue placeholder={formData.regionId ? "Select a university" : "Select a region first"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {universities.map((university) => (
+                            <SelectItem key={university.id} value={university.id.toString()}>
+                              {university.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {errors.universityId && <p className="text-sm text-red-600">{errors.universityId}</p>}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex gap-3 pt-6 border-t">

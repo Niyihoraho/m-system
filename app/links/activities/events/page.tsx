@@ -44,15 +44,15 @@ export default function EventsPage() {
 
   // Handle scope changes for super admin
   const handleScopeChange = (scope: {
-    regionId: string;
-    universityId: string;
-    smallGroupId: string;
-    alumniGroupId: string;
+    regionId?: string;
+    universityId?: string;
+    smallGroupId?: string;
+    alumniGroupId?: string;
   }) => {
-    setRegionId(scope.regionId);
-    setUniversityId(scope.universityId);
-    setSmallGroupId(scope.smallGroupId);
-    setAlumniGroupId(scope.alumniGroupId);
+    setRegionId(scope.regionId || "");
+    setUniversityId(scope.universityId || "");
+    setSmallGroupId(scope.smallGroupId || "");
+    setAlumniGroupId(scope.alumniGroupId || "");
   };
 
   return (

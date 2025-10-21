@@ -93,7 +93,7 @@ export function NotificationsPage({ className }: NotificationsPageProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           readAt: new Date().toISOString(),
-          status: 'read'
+          status: 'marked'
         })
       });
       
@@ -102,7 +102,7 @@ export function NotificationsPage({ className }: NotificationsPageProps) {
           n.id === notificationId ? { 
             ...n, 
             readAt: new Date().toISOString(),
-            status: 'read'
+            status: 'marked'
           } : n
         )
       );
@@ -343,8 +343,8 @@ export function NotificationsPage({ className }: NotificationsPageProps) {
                   <div 
                     key={notification.id} 
                     className={cn(
-                      "border rounded-lg p-4",
-                      isUnread && "bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800",
+                      "border rounded-lg p-4 border-border",
+                      isUnread && "bg-muted/20 border-l-4 border-l-primary",
                       isSelected && "bg-accent"
                     )}
                   >
@@ -356,20 +356,25 @@ export function NotificationsPage({ className }: NotificationsPageProps) {
                       
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2">
-                          <Badge 
-                            variant={notification.type === 'in_app' ? 'default' : 'secondary'}
-                            className="text-xs"
-                          >
-                            {notification.type === 'in_app' ? 'In-App' : notification.type.toUpperCase()}
-                          </Badge>
-                          <Badge 
-                            variant={notification.status === 'sent' ? 'default' : notification.status === 'pending' ? 'secondary' : 'destructive'}
-                            className="text-xs"
-                          >
-                            {notification.status}
-                          </Badge>
+                          {/* Hide badges for university users */}
+                          {userRole !== 'university' && (
+                            <>
+                              <Badge 
+                                variant={notification.type === 'in_app' ? 'default' : 'secondary'}
+                                className="text-xs"
+                              >
+                                {notification.type === 'in_app' ? 'In-App' : notification.type.toUpperCase()}
+                              </Badge>
+                              <Badge 
+                                variant={notification.status === 'sent' ? 'default' : notification.status === 'pending' ? 'secondary' : 'destructive'}
+                                className="text-xs"
+                              >
+                                {notification.status}
+                              </Badge>
+                            </>
+                          )}
                           {isUnread && (
-                            <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                            <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
                           )}
                         </div>
                         

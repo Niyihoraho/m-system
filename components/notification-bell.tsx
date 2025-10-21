@@ -14,6 +14,7 @@ import {
   DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { useUserScope } from "@/components/role-based-access";
 
 interface Notification {
   id: number;
@@ -44,6 +45,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const { userRole } = useUserScope();
 
   // Fetch notifications
   const fetchNotifications = async () => {
@@ -63,22 +65,50 @@ export function NotificationBell({ className }: NotificationBellProps) {
     }
   };
 
+  // Fetch unread count only
+  const fetchUnreadCount = async () => {
+    try {
+      const response = await fetch('/api/notifications?limit=1&unreadOnly=true');
+      const data = await response.json();
+      
+      if (data.pagination) {
+        setUnreadCount(data.pagination.total);
+      } else if (data.notifications) {
+        setUnreadCount(data.notifications.length);
+      }
+    } catch (error) {
+      console.error('Error fetching unread count:', error);
+    }
+  };
+
   // Mark notification as read
   const markAsRead = async (notificationId: number) => {
     try {
       await fetch(`/api/notifications/${notificationId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ readAt: new Date().toISOString() })
+        body: JSON.stringify({ 
+          readAt: new Date().toISOString(),
+          status: 'read'
+        })
       });
       
       // Update local state
       setNotifications(prev => 
         prev.map(n => 
-          n.id === notificationId ? { ...n, readAt: new Date().toISOString() } : n
+          n.id === notificationId ? { 
+            ...n, 
+            readAt: new Date().toISOString(),
+            status: 'marked'
+          } : n
         )
       );
+      
+      // Decrease unread count by 1
       setUnreadCount(prev => Math.max(0, prev - 1));
+      
+      // Refresh unread count to ensure accuracy
+      fetchUnreadCount();
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
@@ -91,6 +121,8 @@ export function NotificationBell({ className }: NotificationBellProps) {
       await Promise.all(
         unreadNotifications.map(n => markAsRead(n.id))
       );
+      // Reset unread count to 0 after marking all as read
+      setUnreadCount(0);
     } catch (error) {
       console.error('Error marking all as read:', error);
     }
@@ -119,6 +151,13 @@ export function NotificationBell({ className }: NotificationBellProps) {
       fetchNotifications();
     }
   }, [isOpen]);
+
+  // Fetch unread count on mount and periodically
+  useEffect(() => {
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 30000); // Check every 30 seconds
+    return () => clearInterval(interval);
+  }, []);
 
   // Parse notification metadata
   const parseMetadata = (metadata?: string) => {
@@ -158,15 +197,17 @@ export function NotificationBell({ className }: NotificationBellProps) {
         </Button>
       </DropdownMenuTrigger>
       
-      <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto">
-        <div className="flex items-center justify-between p-2">
-          <h3 className="font-semibold text-sm">Notifications</h3>
+      <DropdownMenuContent align="end" className="w-80 max-h-96 overflow-y-auto bg-background border-border">
+        <div className="flex items-center justify-between p-2 border-b border-border bg-muted/50">
+          <h3 className="font-semibold text-sm text-foreground">
+            {userRole === 'university' ? 'Event Acknowledgments' : 'Notifications'}
+          </h3>
           {unreadCount > 0 && (
             <Button 
               variant="ghost" 
               size="sm" 
               onClick={markAllAsRead}
-              className="text-xs h-6 px-2"
+              className="text-xs h-6 px-2 text-foreground hover:bg-background/80"
             >
               Mark all read
             </Button>
@@ -192,22 +233,25 @@ export function NotificationBell({ className }: NotificationBellProps) {
               <div key={notification.id} className="border-b last:border-b-0">
                 <div 
                   className={cn(
-                    "p-3 hover:bg-accent cursor-pointer",
-                    isUnread && "bg-blue-50 dark:bg-blue-950/20"
+                    "p-3 hover:bg-muted/30 cursor-pointer",
+                    isUnread && "bg-muted/20 border-l-4 border-l-primary"
                   )}
                   onClick={() => markAsRead(notification.id)}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <Badge 
-                          variant={notification.type === 'in_app' ? 'default' : 'secondary'}
-                          className="text-xs"
-                        >
-                          {notification.type === 'in_app' ? 'In-App' : notification.type.toUpperCase()}
-                        </Badge>
+                        {/* Hide badges for university users */}
+                        {userRole !== 'university' && (
+                          <Badge 
+                            variant={notification.type === 'in_app' ? 'default' : 'secondary'}
+                            className="text-xs"
+                          >
+                            {notification.type === 'in_app' ? 'In-App' : notification.type.toUpperCase()}
+                          </Badge>
+                        )}
                         {isUnread && (
-                          <div className="w-2 h-2 bg-blue-500 rounded-full" />
+                          <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
                         )}
                       </div>
                       

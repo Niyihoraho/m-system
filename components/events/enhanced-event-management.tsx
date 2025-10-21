@@ -81,6 +81,80 @@ export function EnhancedEventManagement({
 }: EnhancedEventManagementProps) {
   // State management
   const [activeTab, setActiveTab] = useState<'list' | 'stats' | 'create'>('list');
+  
+  // Scope-based field visibility logic
+  const getVisibleFields = () => {
+    if (!userScope) {
+      return {
+        scope: true,
+        region: true,
+        university: true,
+        smallGroup: true,
+        alumniGroup: true
+      };
+    }
+
+    switch (userScope.scope) {
+      case 'superadmin':
+        return {
+          scope: true,
+          region: true,
+          university: true,
+          smallGroup: true,
+          alumniGroup: true
+        };
+      case 'national':
+        return {
+          scope: true,
+          region: true,
+          university: true,
+          smallGroup: true,
+          alumniGroup: true
+        };
+      case 'region':
+        return {
+          scope: false, // Scope is pre-selected
+          region: false, // Region is pre-selected
+          university: true,
+          smallGroup: true,
+          alumniGroup: true
+        };
+      case 'university':
+        return {
+          scope: false, // Scope is pre-selected
+          region: false, // Region is pre-selected
+          university: false, // University is pre-selected
+          smallGroup: true,
+          alumniGroup: true
+        };
+      case 'smallgroup':
+        return {
+          scope: false, // Scope is pre-selected
+          region: false, // Region is pre-selected
+          university: false, // University is pre-selected
+          smallGroup: false, // Small group is pre-selected
+          alumniGroup: true
+        };
+      case 'alumnismallgroup':
+        return {
+          scope: false, // Scope is pre-selected
+          region: false, // Region is pre-selected
+          university: false, // University is pre-selected
+          smallGroup: true,
+          alumniGroup: false // Alumni group is pre-selected
+        };
+      default:
+        return {
+          scope: true,
+          region: true,
+          university: true,
+          smallGroup: true,
+          alumniGroup: true
+        };
+    }
+  };
+
+  const visibleFields = getVisibleFields();
   const [events, setEvents] = useState<Event[]>([]);
   const [filteredEvents, setFilteredEvents] = useState<Event[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -910,30 +984,84 @@ export function EnhancedEventManagement({
               <div className="space-y-4">
                 <h4 className="text-md font-semibold text-foreground border-b pb-2">Event Scope</h4>
                 
-                <div className="space-y-2">
-                  <Label htmlFor="scope" className="text-sm font-medium flex items-center gap-2">
-                    <Shield className="h-4 w-4" />
-                    Event Scope *
-                  </Label>
-                  <Select
-                    value={createForm.scope}
-                    onValueChange={(value) => handleScopeInputChange("scope", value)}
-                  >
-                    <SelectTrigger className="h-11">
-                      <SelectValue placeholder="Select event scope" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {scopeOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {/* Show pre-selected scope information */}
+                {userScope && userScope.scope !== 'superadmin' && (
+                  <div className="space-y-3">
+                    <h5 className="text-sm font-medium text-foreground">Pre-selected Scope</h5>
+                    
+                    {!visibleFields.scope && (
+                      <div className="flex items-center gap-2 p-3 bg-muted/50 border border-border rounded-lg">
+                        <Shield className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm text-foreground">
+                          Scope: <span className="font-semibold">{userScope.scope.charAt(0).toUpperCase() + userScope.scope.slice(1)}</span>
+                        </span>
+                      </div>
+                    )}
+                    
+                    {!visibleFields.region && regionId && (
+                      <div className="flex items-center gap-2 p-3 bg-muted/50 border border-border rounded-lg">
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm text-foreground">
+                          Region: <span className="font-semibold">{regions.find(r => r.id.toString() === regionId)?.name || 'Selected'}</span>
+                        </span>
+                      </div>
+                    )}
+                    
+                    {!visibleFields.university && universityId && (
+                      <div className="flex items-center gap-2 p-3 bg-muted/50 border border-border rounded-lg">
+                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm text-foreground">
+                          University: <span className="font-semibold">{universities.find(u => u.id.toString() === universityId)?.name || 'Selected'}</span>
+                        </span>
+                      </div>
+                    )}
+                    
+                    {!visibleFields.smallGroup && smallGroupId && (
+                      <div className="flex items-center gap-2 p-3 bg-muted/50 border border-border rounded-lg">
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm text-foreground">
+                          Small Group: <span className="font-semibold">{smallGroups.find(sg => sg.id.toString() === smallGroupId)?.name || 'Selected'}</span>
+                        </span>
+                      </div>
+                    )}
+                    
+                    {!visibleFields.alumniGroup && alumniGroupId && (
+                      <div className="flex items-center gap-2 p-3 bg-muted/50 border border-border rounded-lg">
+                        <GraduationCap className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm text-foreground">
+                          Alumni Group: <span className="font-semibold">{alumniGroups.find(ag => ag.id.toString() === alumniGroupId)?.name || 'Selected'}</span>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {visibleFields.scope && (
+                  <div className="space-y-2">
+                    <Label htmlFor="scope" className="text-sm font-medium flex items-center gap-2">
+                      <Shield className="h-4 w-4" />
+                      Event Scope *
+                    </Label>
+                    <Select
+                      value={createForm.scope}
+                      onValueChange={(value) => handleScopeInputChange("scope", value)}
+                    >
+                      <SelectTrigger className="h-11">
+                        <SelectValue placeholder="Select event scope" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {scopeOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 {/* Region (for region, university, smallgroup, alumnismallgroup scopes) */}
-                {(createForm.scope === "region" || createForm.scope === "university" || createForm.scope === "smallgroup" || createForm.scope === "alumnismallgroup") && (
+                {visibleFields.region && (createForm.scope === "region" || createForm.scope === "university" || createForm.scope === "smallgroup" || createForm.scope === "alumnismallgroup") && (
                   <div className="space-y-2">
                     <Label htmlFor="regionId" className="text-sm font-medium flex items-center gap-2">
                       <MapPin className="h-4 w-4" />
@@ -958,7 +1086,7 @@ export function EnhancedEventManagement({
                 )}
 
                 {/* University (required for university scope; shown for smallgroup scope) */}
-                {(createForm.scope === "university" || createForm.scope === "smallgroup") && (
+                {visibleFields.university && (createForm.scope === "university" || createForm.scope === "smallgroup") && (
                   <div className="space-y-2">
                     <Label htmlFor="universityId" className="text-sm font-medium flex items-center gap-2">
                       <Building2 className="h-4 w-4" />
@@ -983,7 +1111,7 @@ export function EnhancedEventManagement({
                 )}
 
                 {/* Small Group (only for smallgroup scope) */}
-                {createForm.scope === "smallgroup" && (
+                {visibleFields.smallGroup && createForm.scope === "smallgroup" && (
                   <div className="space-y-2">
                     <Label htmlFor="smallGroupId" className="text-sm font-medium flex items-center gap-2">
                       <Users className="h-4 w-4" />
@@ -1008,7 +1136,7 @@ export function EnhancedEventManagement({
                 )}
 
                 {/* Alumni Small Group (only for alumnismallgroup scope) */}
-                {createForm.scope === "alumnismallgroup" && (
+                {visibleFields.alumniGroup && createForm.scope === "alumnismallgroup" && (
                   <div className="space-y-2">
                     <Label htmlFor="alumniGroupId" className="text-sm font-medium flex items-center gap-2">
                       <GraduationCap className="h-4 w-4" />

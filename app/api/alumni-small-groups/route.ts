@@ -1,16 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getUserScope, getTableRLSConditions } from "@/lib/rls";
 
 export async function GET(request: NextRequest) {
     try {
+        // Get user scope for RLS
+        const userScope = await getUserScope();
+        if (!userScope) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
         const { searchParams } = new URL(request.url);
         const regionId = searchParams.get("regionId");
         const alumniGroupId = searchParams.get("alumniGroupId");
         
         // If specific alumniGroupId is provided, return that alumni small group
         if (alumniGroupId) {
+            const requestedAlumniGroupId = Number(alumniGroupId);
+            
+            // Apply RLS check for specific alumni group
+            if (userScope.scope === 'alumnismallgroup' && userScope.alumniGroupId !== requestedAlumniGroupId) {
+                return NextResponse.json({ error: "Access denied" }, { status: 403 });
+            }
+            
             const alumniSmallGroup = await prisma.alumnismallgroup.findUnique({
-                where: { id: Number(alumniGroupId) },
+                where: { id: requestedAlumniGroupId },
                 include: { 
                     region: { select: { id: true, name: true } }
                 }
@@ -18,14 +32,26 @@ export async function GET(request: NextRequest) {
             if (!alumniSmallGroup) {
                 return NextResponse.json({ error: "Alumni small group not found" }, { status: 404 });
             }
+
+            // Additional RLS check for region scope
+            if (userScope.scope === 'region' && userScope.regionId && alumniSmallGroup.regionId !== userScope.regionId) {
+                return NextResponse.json({ error: "Access denied" }, { status: 403 });
+            }
+
             return NextResponse.json(alumniSmallGroup, { status: 200 });
         }
         
-        const where: Record<string, unknown> = {};
+        // Apply RLS conditions
+        const rlsConditions = getTableRLSConditions(userScope, 'alumnismallgroup');
+        const where: Record<string, unknown> = { ...rlsConditions };
         
-        // Apply explicit region filter if provided
+        // Apply explicit region filter if provided (but it must be within user's scope)
         if (regionId) {
-            where.regionId = Number(regionId);
+            const requestedRegionId = Number(regionId);
+            if (rlsConditions.regionId && requestedRegionId !== rlsConditions.regionId) {
+                return NextResponse.json({ error: "Access denied to requested region" }, { status: 403 });
+            }
+            where.regionId = requestedRegionId;
         }
         
         const alumniSmallGroups = await prisma.alumnismallgroup.findMany({
@@ -43,6 +69,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
+        // Get user scope for RLS
+        const userScope = await getUserScope();
+        if (!userScope) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
         const body = await request.json();
         const { name, regionId } = body;
 
@@ -60,11 +92,22 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Apply RLS checks for creation
+        const finalRegionId = Number(regionId);
+
+        // Check if user has permission to create in this region
+        if (userScope.scope === 'region' && userScope.regionId !== finalRegionId) {
+            return NextResponse.json({ error: "Access denied to create in this region" }, { status: 403 });
+        }
+        if (userScope.scope === 'alumnismallgroup') {
+            return NextResponse.json({ error: "Alumni small group users cannot create new alumni groups" }, { status: 403 });
+        }
+
         // Check if alumni small group with same name already exists in the region
         const existingAlumniSmallGroup = await prisma.alumnismallgroup.findFirst({
             where: { 
                 name: name.trim(),
-                regionId: Number(regionId)
+                regionId: finalRegionId
             }
         });
 
@@ -77,7 +120,7 @@ export async function POST(request: NextRequest) {
 
         // Verify region exists
         const region = await prisma.region.findUnique({
-            where: { id: Number(regionId) }
+            where: { id: finalRegionId }
         });
 
         if (!region) {
@@ -90,7 +133,7 @@ export async function POST(request: NextRequest) {
         const alumniSmallGroup = await prisma.alumnismallgroup.create({
             data: {
                 name: name.trim(),
-                regionId: Number(regionId)
+                regionId: finalRegionId
             },
             include: {
                 region: { select: { id: true, name: true } }
@@ -106,6 +149,12 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
     try {
+        // Get user scope for RLS
+        const userScope = await getUserScope();
+        if (!userScope) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
         const { searchParams } = new URL(request.url);
         const alumniGroupId = searchParams.get("id");
 
@@ -143,6 +192,14 @@ export async function PUT(request: NextRequest) {
                 { error: "Alumni small group not found" },
                 { status: 404 }
             );
+        }
+
+        // Apply RLS checks for update
+        if (userScope.scope === 'alumnismallgroup' && userScope.alumniGroupId !== Number(alumniGroupId)) {
+            return NextResponse.json({ error: "Access denied to update this alumni group" }, { status: 403 });
+        }
+        if (userScope.scope === 'region' && userScope.regionId && existingAlumniSmallGroup.regionId !== userScope.regionId) {
+            return NextResponse.json({ error: "Access denied to update alumni groups outside your region" }, { status: 403 });
         }
 
         // Check if another alumni small group with same name already exists in the region
@@ -193,6 +250,12 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
     try {
+        // Get user scope for RLS
+        const userScope = await getUserScope();
+        if (!userScope) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
         const { searchParams } = new URL(request.url);
         const alumniGroupId = searchParams.get("id");
 
@@ -213,6 +276,14 @@ export async function DELETE(request: NextRequest) {
                 { error: "Alumni small group not found" },
                 { status: 404 }
             );
+        }
+
+        // Apply RLS checks for deletion
+        if (userScope.scope === 'alumnismallgroup') {
+            return NextResponse.json({ error: "Alumni small group users cannot delete alumni groups" }, { status: 403 });
+        }
+        if (userScope.scope === 'region' && userScope.regionId && existingAlumniSmallGroup.regionId !== userScope.regionId) {
+            return NextResponse.json({ error: "Access denied to delete alumni groups outside your region" }, { status: 403 });
         }
 
         // Check if alumni small group is being used by members

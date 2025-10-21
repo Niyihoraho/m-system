@@ -1,201 +1,275 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { z } from "zod";
-import { auth } from "@/lib/auth";
 import { getUserScope } from "@/lib/rls";
+import { z } from "zod";
 
-// Helper function to check if user has access to an attendance record
-async function checkAttendanceAccess(userId: string, attendanceId: number): Promise<{ hasAccess: boolean; attendanceRecord?: unknown; error?: string }> {
-    try {
-        const userScope = await getUserScope();
-        
-        if (!userScope) {
-            return { hasAccess: false, error: "Access denied" };
-        }
-
-        // Get the attendance record to check if user has access
-        const attendanceRecord = await prisma.attendance.findUnique({
-            where: { id: attendanceId },
-            include: {
-                member: { select: { regionId: true, universityId: true, smallGroupId: true, alumniGroupId: true } }
-            }
-        });
-
-        if (!attendanceRecord) {
-            return { hasAccess: false, error: "Attendance record not found" };
-        }
-
-        // Check if user has access to this attendance record
-        let hasAccess = false;
-        if (['superadmin', 'national'].includes(userScope.scope)) {
-            hasAccess = true;
-        } else if (userScope.scope === 'region' && userScope.regionId) {
-            hasAccess = attendanceRecord.member.regionId === userScope.regionId;
-        } else if (userScope.scope === 'university' && userScope.universityId) {
-            hasAccess = attendanceRecord.member.universityId === userScope.universityId;
-        } else if (userScope.scope === 'smallgroup' && userScope.smallGroupId) {
-            hasAccess = attendanceRecord.member.smallGroupId === userScope.smallGroupId;
-        } else if (userScope.scope === 'alumnismallgroup' && userScope.alumniGroupId) {
-            hasAccess = attendanceRecord.member.alumniGroupId === userScope.alumniGroupId;
-        }
-
-        return { hasAccess, attendanceRecord };
-    } catch (error) {
-        console.error('Error checking attendance access:', error);
-        return { hasAccess: false, error: "Access denied" };
-    }
-}
-
+// Validation schema for updating attendance
 const updateAttendanceSchema = z.object({
-  status: z.enum(["present", "absent", "excused"]),
-  notes: z.string().max(1000).optional(),
+  status: z.enum(["present", "absent", "excused"]).optional(),
 });
 
-// GET single attendance record
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const id = parseInt(params.id);
-    if (isNaN(id)) {
+    try {
+        const userScope = await getUserScope();
+        if (!userScope) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const resolvedParams = await params;
+        const attendanceId = parseInt(resolvedParams.id);
+    if (isNaN(attendanceId)) {
       return NextResponse.json({ error: "Invalid attendance ID" }, { status: 400 });
     }
 
-    // Check access permission for this attendance record
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
-    }
-
-    const accessCheck = await checkAttendanceAccess(session.user.id, id);
-    if (!accessCheck.hasAccess) {
-      return NextResponse.json(
-        { error: accessCheck.error || "Access denied to this attendance record" },
-        { status: accessCheck.error === "Attendance record not found" ? 404 : 403 }
-      );
-    }
-
-    // Get the full attendance record with related data
+    // Get attendance record with related data
     const attendanceRecord = await prisma.attendance.findUnique({
-      where: { id },
+      where: { id: attendanceId },
       include: {
-        member: { 
-          select: { 
-            id: true, 
-            firstname: true, 
+        member: {
+          select: {
+            id: true,
+            firstname: true,
             secondname: true,
+            email: true,
+            phone: true,
             regionId: true,
             universityId: true,
             smallGroupId: true,
-            alumniGroupId: true
-          } 
+            alumniGroupId: true,
+          }
         },
-        permanentministryevent: { select: { id: true, name: true } },
-        trainings: { select: { id: true, name: true } }
+        permanentministryevent: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+          }
+        },
+        trainings: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+          }
+        }
       }
     });
 
-    return NextResponse.json(attendanceRecord, { status: 200 });
-  } catch (error: unknown) {
+    if (!attendanceRecord) {
+      return NextResponse.json({ error: "Attendance record not found" }, { status: 404 });
+    }
+
+    // Apply RLS - users can only view attendance records within their scope
+    if (userScope.scope !== 'superadmin') {
+      const member = attendanceRecord.member;
+      if (!member) {
+        return NextResponse.json({ error: "Member not found" }, { status: 404 });
+      }
+
+      let hasAccess = false;
+      if (userScope.smallGroupId && member.smallGroupId === userScope.smallGroupId) {
+        hasAccess = true;
+      } else if (userScope.universityId && member.universityId === userScope.universityId) {
+        hasAccess = true;
+      } else if (userScope.regionId && member.regionId === userScope.regionId) {
+        hasAccess = true;
+      }
+
+      if (!hasAccess) {
+        return NextResponse.json({ error: "Access denied" }, { status: 403 });
+      }
+    }
+
+    return NextResponse.json(attendanceRecord);
+
+  } catch (error) {
     console.error("Error fetching attendance record:", error);
-    return NextResponse.json({ error: "Failed to fetch attendance record" }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
-export async function PATCH(
+export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const id = parseInt(params.id);
-    if (isNaN(id)) {
+    try {
+        const userScope = await getUserScope();
+        if (!userScope) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const resolvedParams = await params;
+        const attendanceId = parseInt(resolvedParams.id);
+    if (isNaN(attendanceId)) {
       return NextResponse.json({ error: "Invalid attendance ID" }, { status: 400 });
     }
 
-    // Check access permission for this attendance record
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
-    }
-
-    const accessCheck = await checkAttendanceAccess(session.user.id, id);
-    if (!accessCheck.hasAccess) {
-      return NextResponse.json(
-        { error: accessCheck.error || "Access denied to this attendance record" },
-        { status: accessCheck.error === "Attendance record not found" ? 404 : 403 }
-      );
-    }
-
+    // Parse and validate request body
     const body = await request.json();
-    const validation = updateAttendanceSchema.safeParse(body);
-    
-    if (!validation.success) {
-      return NextResponse.json({ 
-        error: "Invalid data", 
-        details: validation.error.flatten().fieldErrors 
-      }, { status: 400 });
-    }
+    const validatedData = updateAttendanceSchema.parse(body);
 
-    const data = validation.data;
-    
-    const updatedAttendance = await prisma.attendance.update({
-      where: { id },
-      data: {
-        status: data.status,
-        notes: data.notes,
-      },
+    // Get existing attendance record to check access
+    const existingRecord = await prisma.attendance.findUnique({
+      where: { id: attendanceId },
       include: {
-        member: { select: { id: true, firstname: true, secondname: true } },
-        permanentministryevent: { select: { id: true, name: true } },
-        trainings: { select: { id: true, name: true } }
+        member: {
+          select: {
+            regionId: true,
+            universityId: true,
+            smallGroupId: true,
+            alumniGroupId: true,
+          }
+        }
       }
     });
 
-    return NextResponse.json(updatedAttendance, { status: 200 });
-  } catch (error: unknown) {
-    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2025') {
+    if (!existingRecord) {
       return NextResponse.json({ error: "Attendance record not found" }, { status: 404 });
     }
+
+    // Apply RLS - users can only edit attendance records within their scope
+    if (userScope.scope !== 'superadmin') {
+      const member = existingRecord.member;
+      if (!member) {
+        return NextResponse.json({ error: "Member not found" }, { status: 404 });
+      }
+
+      let hasAccess = false;
+      if (userScope.smallGroupId && member.smallGroupId === userScope.smallGroupId) {
+        hasAccess = true;
+      } else if (userScope.universityId && member.universityId === userScope.universityId) {
+        hasAccess = true;
+      } else if (userScope.regionId && member.regionId === userScope.regionId) {
+        hasAccess = true;
+      }
+
+      if (!hasAccess) {
+        return NextResponse.json({ error: "Access denied" }, { status: 403 });
+      }
+    }
+
+    // Update attendance record
+    const updatedRecord = await prisma.attendance.update({
+      where: { id: attendanceId },
+      data: {
+        ...validatedData,
+      },
+      include: {
+        member: {
+          select: {
+            id: true,
+            firstname: true,
+            secondname: true,
+            email: true,
+            phone: true,
+          }
+        },
+        permanentministryevent: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+          }
+        },
+        trainings: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+          }
+        }
+      }
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: updatedRecord,
+      message: "Attendance record updated successfully"
+    });
+
+  } catch (error) {
     console.error("Error updating attendance record:", error);
-    return NextResponse.json({ error: "Failed to update attendance record" }, { status: 500 });
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ 
+        error: "Validation error", 
+        details: error.issues 
+      }, { status: 400 });
+    }
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const id = parseInt(params.id);
-    if (isNaN(id)) {
+    try {
+        const userScope = await getUserScope();
+        if (!userScope) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const resolvedParams = await params;
+        const attendanceId = parseInt(resolvedParams.id);
+    if (isNaN(attendanceId)) {
       return NextResponse.json({ error: "Invalid attendance ID" }, { status: 400 });
     }
 
-    // Check access permission for this attendance record
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
-    }
-
-    const accessCheck = await checkAttendanceAccess(session.user.id, id);
-    if (!accessCheck.hasAccess) {
-      return NextResponse.json(
-        { error: accessCheck.error || "Access denied to this attendance record" },
-        { status: accessCheck.error === "Attendance record not found" ? 404 : 403 }
-      );
-    }
-
-    await prisma.attendance.delete({
-      where: { id }
+    // Get existing attendance record to check access
+    const existingRecord = await prisma.attendance.findUnique({
+      where: { id: attendanceId },
+      include: {
+        member: {
+          select: {
+            regionId: true,
+            universityId: true,
+            smallGroupId: true,
+            alumniGroupId: true,
+          }
+        }
+      }
     });
 
-    return NextResponse.json({ message: "Attendance record deleted successfully" }, { status: 200 });
-  } catch (error: unknown) {
-    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2025') {
+    if (!existingRecord) {
       return NextResponse.json({ error: "Attendance record not found" }, { status: 404 });
     }
+
+    // Apply RLS - users can only delete attendance records within their scope
+    if (userScope.scope !== 'superadmin') {
+      const member = existingRecord.member;
+      if (!member) {
+        return NextResponse.json({ error: "Member not found" }, { status: 404 });
+      }
+
+      let hasAccess = false;
+      if (userScope.smallGroupId && member.smallGroupId === userScope.smallGroupId) {
+        hasAccess = true;
+      } else if (userScope.universityId && member.universityId === userScope.universityId) {
+        hasAccess = true;
+      } else if (userScope.regionId && member.regionId === userScope.regionId) {
+        hasAccess = true;
+      }
+
+      if (!hasAccess) {
+        return NextResponse.json({ error: "Access denied" }, { status: 403 });
+      }
+    }
+
+    // Delete attendance record
+    await prisma.attendance.delete({
+      where: { id: attendanceId }
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Attendance record deleted successfully"
+    });
+
+  } catch (error) {
     console.error("Error deleting attendance record:", error);
-    return NextResponse.json({ error: "Failed to delete attendance record" }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
-} 
+}
